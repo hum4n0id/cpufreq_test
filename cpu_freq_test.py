@@ -512,7 +512,6 @@ class cpuFreqCoreTest(cpuFreqTest):
             # pass random int for load generation
             execute_workload(
                 random.randint(34512, 67845))
-            # timerThread.start()
             visualize_freq(freq)
             # reset signal alarm trigger bit
             self.__stop_loop = 0
