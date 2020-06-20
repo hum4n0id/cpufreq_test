@@ -1,7 +1,20 @@
 # !/usr/bin/env python3
 
+"""
+todo/verify:
+* implement argparse
+* change header to Canonical official syntax
+* expand exeception handling
+* make reset() callable with '-r' arg
+* get min/max from min/max files and write to attributes
+    - currently using min/max from scaling freq table
+* check if workload needs to scale with processor power
+* add capabilities to track spawned threads from
+    callback timers (nice to have).
+"""
+
 from os import path
-from collections import deque
+import collections
 import itertools
 import multiprocessing
 import threading
@@ -10,12 +23,13 @@ import random
 import signal
 import sys
 import math
-import time
-import datetime
+import pprint
 # from pudb import set_trace; set_trace()
 
 
 class cpuFreqExec(Exception):
+    """ Exception handling.
+    """
     def __init__(self, message):
         self.message = message
         # logging error
@@ -26,17 +40,28 @@ class cpuFreqTest:
     def __init__(self):
         self._core_list = []
         self._thread_siblings = []
-        self.freq_results = []
         self.pid_list = []
-        # time to stay at frequency under load (s)
-        # keep above 10s to assist lower freq sampling
-        # should be gt observe_interval
-        self.scale_duration = 4
-        # frequency sampling interval (s)
-        # should be lt scale_duration
-        self.observe_interval = 1
+        self.freq_results = []
+        self.freq_result_map = {}
+        self.freq_chainmap = collections.ChainMap()
+        self._fail_count = 0
 
-        # attributes common to all cores
+        # time to stay at frequency under load (sec)
+        # should be gt observe_interval
+        self.scale_duration = 15
+
+        # frequency sampling interval (thread timer)
+        # should be lt scale_duration
+        self._observe_interval = .5
+
+        # max, min percentage of avg freq allow to pass
+        # relative to target frequency
+        # ex: max = 110, min = 90 is 20% passing tolerance
+        # self._max_freq_pct = 110
+        self._max_freq_pct = 110
+        self._min_freq_pct = 90
+
+        # attributes common to all cores, stateless
         self.path_root = '/sys/devices/system/cpu'
         path_scaling_driver = path.join(
             'cpu0', 'cpufreq', 'scaling_driver')
@@ -49,18 +74,40 @@ class cpuFreqTest:
             path_scaling_driver).rstrip('\n')
         self.scaling_gvrnrs = self._read_cpu(
             path_scaling_gvrnrs).rstrip('\n').split()
-        # flip order of freqs, ascending
         self.scaling_freqs_str = self._read_cpu(
             path_scaling_freqs).rstrip('\n').split()
-        # cast freqs to int
         self.scaling_freqs = list(
             map(
                 int, self.scaling_freqs_str))
 
+    @property
+    def observe_interval(self):
+        return self._observe_interval
+
+    @observe_interval.setter
+    def observe_interval(self, idx):
+        """ Setter to pad/throttle observ_freq_cb()
+        callback interval, as during frequency ramp up,
+        'time dilation' will occur.
+        Also prevents race condition (need to verify).
+        """
+        for idx in range(2, 5):
+            for idx in range(6, 9):
+                for idx in range(10, 14):
+                    for idx in range(15, 20):
+                        while idx >= 21:
+                            self._observe_interval += .1
+                        self._observe_interval += .1
+                    self._observe_interval += .2
+                self._observe_interval += .2
+            self._observe_interval += .3
+
     def _read_cpu(self, fname):
+        """ Read sysfs/cpufreq file.
+        """
         abs_path = path.join(
             self.path_root, fname)
-        print('read: ', abs_path)
+        # debug print('read: ', abs_path)
         # open abs_path in binary mode, read
         try:
             with open(abs_path, 'rb') as f:
@@ -72,9 +119,11 @@ class cpuFreqTest:
             return data
 
     def _write_cpu(self, fname, data):
+        """ Write sysfs/cpufreq file.
+        """
         abs_path = path.join(
             self.path_root, fname)
-        print('write: ', abs_path)
+        # debug print('write: ', abs_path)
         # open abs_path in binary mode, write
         try:
             with open(abs_path, 'wb') as f:
@@ -86,10 +135,13 @@ class cpuFreqTest:
             return data
 
     def _list_core_rng(self, core_rng):
+        """ Method to convert core range to list prior
+        to iteration.
+        """
         core_list = []
         if not core_rng:
             return core_list
-        # may be unnecessary
+        # allow iteration w/ rng
         for core in core_rng.split(','):
             first_last = core.split('-')
             if len(first_last) == 2:
@@ -99,11 +151,12 @@ class cpuFreqTest:
                         int(first_last[1]) + 1))
             else:
                 core_list += [int(first_last[0])]
-        print ('core_list: ', core_list)
         self._core_list = core_list
         return core_list
 
     def _get_cores(self, fname):
+        """ Get various core ranges, convert to list.
+        """
         abs_path = path.join(
             self.path_root, fname)
         core_rng = self._read_cpu(
@@ -111,11 +164,36 @@ class cpuFreqTest:
         core_list = self._list_core_rng(core_rng)
         return core_list
 
-    def _process_data(self):
-        pass
+    def _process_results(self):
+        """ Process results from cpuFreqCoreTest()
+        """
+        # transpose and append results from subclass with
+        # dict comprehension
+        def comp_freq_dict(inner_key, inner_val):
+            if inner_val:
+                result_pct = int((inner_val / inner_key) * 100)
+                new_inner_val = [result_pct]
+                if self._min_freq_pct < result_pct < self._max_freq_pct:
+                    new_inner_val.append('Pass')
+                else:
+                    new_inner_val.append('Fail')
+                    self._fail_count += 1
 
-    # common
+            new_inner_val.append(int(inner_val))
+            return new_inner_val
+
+        # use ChainMap object to combine and sort results
+        self.freq_result_map = {
+            outer_key: {
+                inner_key: comp_freq_dict(inner_key, inner_val)
+                for inner_key, inner_val in outer_val.items()}
+            for outer_key, outer_val in self.freq_chainmap.items()}
+
+        return self.freq_result_map
+
     def enable_all_cpu(self):
+        """ Enable all present and offline cores.
+        """
         to_enable = (
             set(self._get_cores('present'))
             & set(self._get_cores('offline')))
@@ -123,31 +201,19 @@ class cpuFreqTest:
         for cpu in to_enable:
             abs_path = path.join(
                 ('cpu' + str(cpu)), 'online')
-            print('en_cpu: ', abs_path)
             self._write_cpu(abs_path, b'1')
 
-    # def _get_thread_siblings(self):
-    #     thread_siblings = []
-    #     online_cpus = self._get_cores('online')
-    #     for cpu in online_cpus:
-    #         abs_path = path.join(
-    #             self.path_root, ('cpu' + str(cpu)),
-    #             'topology', 'thread_siblings_list')
-    #         thread_siblings.append(self._get_cores(abs_path)[1:])
-    #     return thread_siblings
-
-    # common
     def disable_thread_siblings(self):
-        """ Disable all threads attached to the same core.
+        """ Disable all threads attached to the same core,
+        aka hyperthreading.
         """
-        # prefer lists for iterations
         thread_siblings = []
         online_cpus = self._get_cores('online')
         for cpu in online_cpus:
             abs_path = path.join(
                 self.path_root, ('cpu' + str(cpu)),
                 'topology', 'thread_siblings_list')
-            # second thread is sibling
+            # second core is sibling
             thread_siblings += self._get_cores(abs_path)[1:]
         self._thread_siblings = thread_siblings
         # prefer set for binary &
@@ -159,7 +225,6 @@ class cpuFreqTest:
                 'online')
             self._write_cpu(abs_path, b'0')
 
-    # make callable by argparse '-r' arg
     def reset(self):
         """ Enable all offline cpus,
         and reset max and min frequencies files.
@@ -176,7 +241,7 @@ class cpuFreqTest:
             max_freq = str(
                 max(
                     self.scaling_freqs)).encode()
-            print ('max freq: ', max_freq)
+            # debug print ('max freq: ', max_freq)
             self._write_cpu(abs_path, max_freq)
 
             # reset min freq
@@ -186,11 +251,13 @@ class cpuFreqTest:
             min_freq = str(
                 min(
                     self.scaling_freqs)).encode()
-            print ('min freq: ', min_freq)
+            # debug print ('min freq: ', min_freq)
             self._write_cpu(abs_path, min_freq)
 
-    # common
     def set_governors(self, governor):
+        """ Set/change cpu governor, perform on
+        all cores.
+        """
         print ('setting governor: ', governor)
         online_cores = self._get_cores('online')
         for cpu in online_cores:
@@ -200,6 +267,10 @@ class cpuFreqTest:
             self._write_cpu(abs_path, governor.encode())
 
     def run_test(self):
+        """ Execute cpufreq test, process results and return
+        appropriate exit code.
+        """
+        # scaling_freqs = list(reversed(self.scaling_freqs))
         # disable hyperthread cores
         self.disable_thread_siblings()
 
@@ -211,26 +282,40 @@ class cpuFreqTest:
 
         # spawn core tests concurrently
         self.spawn_core_test()
-        self._process_data()
+        print (threading.active_count())
+        print('\n##[--------------]##')
+        print('##[TEST COMPLETE!]##')
+        print('##[--------------]##\n')
 
         # reset state and cleanup
-        print('reseting cpus')
+        print('##[resetting cpus]##')
         self.reset()
+        print (threading.active_count())
 
-        # observe + tally results
-        print('freq_results')
-        print(self.freq_results)
+        # process results
+        print('\n##[results]##')
+        print('-legend:')
+        print(' core: target_freq: [sampled_avg_%, P/F, sampled_avg],\n')
+        pprint.pprint(self._process_results())
 
-    # log PIDs
-    # cleanup w/ join
+        if self._fail_count:
+            print('\nTest Failed')
+            print('fail_count = ', self._fail_count)
+            return 1
+        else:
+            print('\nTest Passed')
+            return 0
+
     def spawn_core_test(self):
+        """ Spawn concurrent scale testing on all online cores.
+        """
         proc_list = list()
         result_queue = multiprocessing.Queue()
-        n_cpus = len(self._get_cores('online'))
+        online_cores = self._get_cores('online')
 
-        for cpu in range(n_cpus):
-            print ('cpu: ', cpu)
-            affinity = [cpu]
+        for core in online_cores:
+            print ('cpu: ', core)
+            affinity = [core]
             aff_dict = dict(
                 affinity=affinity)
             proc = multiprocessing.Process(
@@ -240,21 +325,19 @@ class cpuFreqTest:
             proc.start()
             proc_list.append(proc)
 
-        for cpu in range(n_cpus):
+        for core in online_cores:
             child_queue = result_queue.get()
-            self.freq_results.append(child_queue)
+            self.freq_chainmap = self.freq_chainmap.new_child(
+                child_queue)
 
         for proc in proc_list:
             proc.join()
             print ('process collapsed, joined parent')
 
-    # def execute_core_test(self, core):
-    #     cpu_freq_ctest = cpuFreqCoreTest(core)
-    #     return cpu_freq_ctest.scale_all_freq()
-
-# fix formatting, print, comments
-    # def run_child(self, affinity):
     def run_child(self, output, affinity):
+        """ Subclass instantiation & constructor for individual
+        core.
+        """
         # get self pid
         proc = psutil.Process()
 
@@ -270,48 +353,72 @@ class cpuFreqTest:
         cpu_freq_ctest = cpuFreqCoreTest(core)
         cpu_freq_ctest.scale_all_freq()
         # thread safe
-        observed_freqs = cpu_freq_ctest.__call__()
-        # concurrent/simultaneous getter access deadlocking,
-        # unmangled attribute...?
-        # observed_freqs =e cpu_freq_ctest.observed_freq
-        freq_result = {'cpu': core, 'observd_freqs': observed_freqs}
-        output.put(freq_result)
-        # freq_ntpl = namedtuple('cpu', [self.scaling_freqs_str])
-        # core = freq_ntpl._make(result)
+        freq_map = cpu_freq_ctest.__call__()
+
+        # map results to core
+        output.put(freq_map)
 
 
 class cpuFreqCoreTest(cpuFreqTest):
     """ Subclass to facilitate concurrent frequency scaling.
     Every physical core will self-test freq. scaling capabilities at once.
     """
+
     def __init__(self, cpu_num):
         super().__init__()
         # mangle instance attributes
         self.__instance_core = int(cpu_num)
         self.__instance_cpu = 'cpu' + str(cpu_num)
-        self.__instance_cpu_dict = {'cpu': cpu_num}
         self.__stop_loop = 0
         self.__observed_freqs = []
         self.__observed_freqs_dict = {}
+        self.__observed_freqs_rdict = {}
+        self.__freq_avg = []
 
     def __call__(self):
-        return self.__observed_freqs_dict
+        freq_map = (
+            {self.__instance_core: self.__observed_freqs_dict})
+        return freq_map
 
     @property
     def observed_freqs(self):
         return self.__observed_freqs
 
     @observed_freqs.setter
-    def observed_freqs(self, freq):
-        freq = str(freq)
-        # freq = '###' + str(freq) + '###'
-        self.__observed_freqs_dict.update({freq: self.__observed_freqs})
+    def observed_freqs(self, idx, avg_freq=0):
+        """ Setter to align freq key/values and split result lists
+        for grouping.
+        """
+        scaling_freqs = list(reversed(self.scaling_freqs))
+        # offset keys to match results
+        if idx:
+            target_freq = scaling_freqs[idx - 1]
+        else:
+            target_freq = scaling_freqs[idx]
+
+        self.__freq_avg = self.calc_freq_avg(
+            self.__observed_freqs)
+
+        for freq in self.__freq_avg:
+            avg_freq = freq
+        # append observed_freq list to dict value with target freq as key
+        self.__observed_freqs_dict.update(
+            {target_freq: avg_freq})
+        # pack results for raw data record
+        self.__observed_freqs_rdict.update(
+            {target_freq: self.__observed_freqs})
+        # reset list for next frequency
         self.__observed_freqs = []
-        # self.__observed_freqs.append(freq)
+
+    @property
+    def observed_freqs_rdict(self):
+        """ Getter to expose raw freq samples.
+        """
+        return self.__observed_rfreqs
 
     class ObserveFreq:
-        """ Class for instantiating observation thread;
-        note: interval scaling will occur as freq is ramped up.
+        """ Class for instantiating observation thread (async);
+        note: interval scaling will occur with freq scaling.
         """
         def __init__(self, interval, callback, **kwargs):
             self.interval = interval
@@ -329,7 +436,11 @@ class cpuFreqCoreTest(cpuFreqTest):
             thread_timer.start()
 
     def observe_freq_cb(self):
-        self.__observed_freqs.append(self.get_cur_freq())
+        """ Callback method to sample frequency.
+        """
+        # sample current frequency
+        self.__observed_freqs.append(
+            self.get_cur_freq())
         print (self.__observed_freqs)
 
     def get_cur_freq(self):
@@ -342,32 +453,25 @@ class cpuFreqCoreTest(cpuFreqTest):
                 'cpufreq', 'scaling_cur_freq')
             freqs = super()._read_cpu(
                 abs_path).rstrip('\n').split()[0]
-            return freqs
+            return int(freqs)
 
-    # def sample_freq_cb(self):
-    #     next_call = time.time()
-    #     while True:
-    #         self.__observed_freqs.append(self.get_cur_freq())
-    #         print (self.__observed_freqs)
-    #         next_call = next_call + self.sample_time
-    #         time.sleep(next_call - time.time())
+    def calc_freq_avg(self, freqs, n=3):
+        """ Calculate moving average of observed_freqs.
+        """
+        freq_itr = iter(freqs)
+        freq_deq = collections.deque(
+            itertools.islice(freq_itr, n - 1))
+        freq_deq.appendleft(0)
+        freq_sum = sum(freq_deq)
+        for elm in freq_itr:
+            freq_sum += elm - freq_deq.popleft()
+            freq_deq.append(elm)
+            yield freq_sum / n
 
     def scale_all_freq(self):
         """ Primary class method to get running core freqs,
         nested fns for encapsulation.
         """
-        # def moving_average(iterable, n=3):
-        #     # moving_average([40, 30, 50, 46, 39, 44]) --> 4
-        # 0.0 42.0 45.0 43.0
-        #     it = iter(iterable)
-        #     d = deque(itertools.islice(it, n - 1))
-        #     d.appendleft(0)
-        #     s = sum(d)
-        #     for elem in it:
-        #         s += elem - d.popleft()
-        #         d.append(elem)
-        #         yield s / n
-
         def execute_workload(x):
             """ Perform maths to load cpu/core.
             """
@@ -377,23 +481,21 @@ class cpuFreqCoreTest(cpuFreqTest):
                 math.factorial(x)
 
         def handle_alarm(*args):
-            """ Alarm trigger callback.
+            """ Alarm trigger callback,
+            unload core
             """
-            # record observed frequency under load
-            # self.__last_freq = self.get_cur_freq()
-            # unload core
             self.__stop_loop = 1
 
-# revisit / tune, try using observed_freq
-        def verify_freq(freq):
-            print ('##########################')
-            print ('CPU: ', self.__instance_cpu)
-            print('set freq: ', freq.decode())
-            observed_freq = self.get_cur_freq()
-            # self.__observed_freqs.append(int(self.__last_freq))
-            print ('observed_freq: ', observed_freq)
-            print ('self.__observed_freq: ', self.__observed_freqs)
-            print ('##########################')
+        def visualize_freq(freq):
+            """ Method to provide feedback for debug/verbose
+            logging.
+            """
+            # print ('##########################')
+            # print ('CPU: ', self.__instance_cpu)
+            # print('set freq: ', freq.decode())
+            # print ('observed_freq: ', self.get_cur_freq())
+            # print ('##########################')
+            pass
 
         def scale_to_freq(freq, idx):
             """ Proxy method to scale core to freq.
@@ -408,18 +510,15 @@ class cpuFreqCoreTest(cpuFreqTest):
                 callback=self.observe_freq_cb)
             # init data sampling
             observe_freq.observe()
-            # set remaining frequency markers
-            if idx > 0:
-                self.observed_freqs = freq.decode()
+            # call setter in parent class
+            self.observed_freqs = idx
             # pass random int for load generation
             execute_workload(
                 random.randint(34512, 67845))
             # timerThread.start()
-            verify_freq(freq)
+            visualize_freq(freq)
             # reset signal alarm trigger bit
             self.__stop_loop = 0
-
-        # scaling_freqs_set = set([reversed(self.scaling_freqs)])
 
         # setup paths
         print('* scaling: ', self.__instance_cpu)
@@ -434,13 +533,9 @@ class cpuFreqCoreTest(cpuFreqTest):
             'cpufreq', 'scaling_min_freq')
         print (' freq scaling table: ', self.scaling_freqs)
 
-# add conditional to test order of scaling_freqs, reverse if necessary
+        # iterate over core supported freqs
         for idx, freq in enumerate(reversed(self.scaling_freqs)):
-            # set initial frequency marker
-            if idx == 0:
-                self.observed_freqs = freq
             print (' scaling to: ', freq)
-            # set marker for sorting/processing
             freq = str(freq).encode()
             # userspace governor required to write to ./scaling_setspeed
             if self.scaling_driver == 'acpi-cpufreq':
@@ -451,7 +546,10 @@ class cpuFreqCoreTest(cpuFreqTest):
                         'ERROR: setting invalid frequency,\
                         scaling_setspeed!')
                 else:
+                    # begin scaling
                     scale_to_freq(freq, idx)
+                    # pad observe_interval callback
+                    self.observe_interval = idx
             else:
                 # per cpufreq, set max_freq before min_freq
                 try:
@@ -468,16 +566,15 @@ class cpuFreqCoreTest(cpuFreqTest):
                             'ERROR: setting invalid frequency,\
                             scaling_min_freq!')
                     else:
+                        # begin scaling
                         scale_to_freq(freq, idx)
+                        # pad observe_interval callback
+                        self.observe_interval = idx
 
 
 def main():
     cpu_freq_test = cpuFreqTest()
-    cpu_freq_test.run_test()
-    n_cpus = psutil.cpu_count()
-    print ('cpu_count: ', n_cpus)
-    print ('PID list: ', cpu_freq_test.pid_list)
-    return 0
+    return(cpu_freq_test.run_test())
 
 
 if __name__ == '__main__':
