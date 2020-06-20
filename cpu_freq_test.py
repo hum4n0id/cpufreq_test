@@ -7,7 +7,7 @@ todo/verify:
 * expand exeception handling
 * make reset() callable with '-r' arg
 * get min/max from min/max files and write to attributes
-    - currently using min/max from scaling freq table
+    - currently using min/max from freq scaling table
 * check if workload needs to scale with processor power
 * add capabilities to track spawned threads from
     callback timers (nice to have).
@@ -87,20 +87,18 @@ class cpuFreqTest:
     @observe_interval.setter
     def observe_interval(self, idx):
         """ Setter to pad/throttle observ_freq_cb()
-        callback interval, as during frequency ramp up,
-        'time dilation' will occur.
-        Also prevents race condition (need to verify).
+        prevents race condition (need to verify)?
         """
         for idx in range(2, 5):
             for idx in range(6, 9):
                 for idx in range(10, 14):
                     for idx in range(15, 20):
                         while idx >= 21:
-                            self._observe_interval += .1
-                        self._observe_interval += .1
+                            self._observe_interval += .3
+                        self._observe_interval += .2
                     self._observe_interval += .2
-                self._observe_interval += .2
-            self._observe_interval += .3
+                self._observe_interval += .1
+            self._observe_interval += .1
 
     def _read_cpu(self, fname):
         """ Read sysfs/cpufreq file.
@@ -173,12 +171,12 @@ class cpuFreqTest:
             if inner_val:
                 result_pct = int((inner_val / inner_key) * 100)
                 new_inner_val = [result_pct]
-                if self._min_freq_pct < result_pct < self._max_freq_pct:
+                if self._min_freq_pct <= result_pct <= self._max_freq_pct:
                     new_inner_val.append('Pass')
                 else:
                     new_inner_val.append('Fail')
                     self._fail_count += 1
-
+            # append avg freq to 
             new_inner_val.append(int(inner_val))
             return new_inner_val
 
@@ -282,7 +280,6 @@ class cpuFreqTest:
 
         # spawn core tests concurrently
         self.spawn_core_test()
-        print (threading.active_count())
         print('\n##[--------------]##')
         print('##[TEST COMPLETE!]##')
         print('##[--------------]##\n')
@@ -290,7 +287,7 @@ class cpuFreqTest:
         # reset state and cleanup
         print('##[resetting cpus]##')
         self.reset()
-        print (threading.active_count())
+        print ('active threads:', threading.active_count())
 
         # process results
         print('\n##[results]##')
