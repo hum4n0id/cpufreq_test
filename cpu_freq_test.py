@@ -81,15 +81,16 @@ class cpuFreqTest:
             'cpu0', 'cpufreq', 'scaling_driver')
         path_scaling_gvrnrs = path.join(
             'cpu0', 'cpufreq', 'scaling_available_governors')
-        path_scaling_freqs = path.join(
-            'cpu0', 'cpufreq', 'scaling_available_frequencies')
-
         self.scaling_driver = self._read_cpu(
             path_scaling_driver).rstrip('\n')
         self.scaling_gvrnrs = self._read_cpu(
             path_scaling_gvrnrs).rstrip('\n').split()
 
+        # ensure the correct freq table is populated
         if self.scaling_driver == 'acpi-cpufreq':
+            path_scaling_freqs = path.join(
+                'cpu0', 'cpufreq',
+                'scaling_available_frequencies')
             scaling_freqs = self._read_cpu(
                 path_scaling_freqs).rstrip('\n').split()
             self.scaling_freqs = list(
