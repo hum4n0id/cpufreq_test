@@ -24,8 +24,7 @@ import sys
 import math
 import pprint
 import psutil
-# from pudb import set_trace
-# set_trace()
+# from pudb import set_trace; set_trace()
 
 
 class cpuFreqExec(Exception):
@@ -39,6 +38,19 @@ class cpuFreqExec(Exception):
 
 class cpuFreqTest:
     def __init__(self):
+        def append_max_min():
+            scaling_freqs = []
+            path_max = path.join(
+                'cpu0', 'cpufreq', 'scaling_max_freq')
+            path_min = path.join(
+                'cpu0', 'cpufreq', 'scaling_min_freq')
+            scaling_freqs.append(self._read_cpu(
+                path_max).rstrip('\n'))
+            scaling_freqs.append(self._read_cpu(
+                path_min).rstrip('\n'))
+
+            return scaling_freqs
+
         self.pid_list = []  # pids for core affinity assignment
         self.freq_result_map = {}  # final results
         # ChainMap object constructor
@@ -77,11 +89,15 @@ class cpuFreqTest:
             path_scaling_driver).rstrip('\n')
         self.scaling_gvrnrs = self._read_cpu(
             path_scaling_gvrnrs).rstrip('\n').split()
-        scaling_freqs = self._read_cpu(
-            path_scaling_freqs).rstrip('\n').split()
-        self.scaling_freqs = list(
-            map(
-                int, scaling_freqs))
+
+        if self.scaling_driver == 'intel_pstate':
+            scaling_freqs = append_max_min()
+        else:
+            scaling_freqs = self._read_cpu(
+                path_scaling_freqs).rstrip('\n').split()
+            self.scaling_freqs = list(
+                map(
+                    int, scaling_freqs))
 
     @property
     def observe_interval(self):
