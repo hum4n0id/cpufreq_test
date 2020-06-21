@@ -489,7 +489,7 @@ class cpuFreqCoreTest(cpuFreqTest):
             """ Perform maths to load core.
             """
             print (' generating cpu load')
-            print (' n = ', n)
+            print (' n =', n)
             while not self.__stop_loop:
                 math.factorial(n)
 
