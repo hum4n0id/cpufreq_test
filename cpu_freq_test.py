@@ -39,12 +39,13 @@ class cpuFreqExec(Exception):
 class cpuFreqTest:
     def __init__(self):
         def append_max_min():
+            scaling_freqs = []
             path_max = path.join(
                 'cpu0', 'cpufreq', 'scaling_max_freq')
             path_min = path.join(
                 'cpu0', 'cpufreq', 'scaling_min_freq')
-            scaling_freqs = [self._read_cpu(
-                path_max).rstrip('\n')]
+            scaling_freqs.append(self._read_cpu(
+                path_max).rstrip('\n'))
             scaling_freqs.append(self._read_cpu(
                 path_min).rstrip('\n'))
             return scaling_freqs
@@ -85,8 +86,12 @@ class cpuFreqTest:
         # available governors
         path_scaling_gvrnrs = path.join(
             'cpu0', 'cpufreq', 'scaling_available_governors')
+        path_startup_governor = path.join(
+            'cpu0', 'cpufreq', 'scaling_governor')
         self.scaling_gvrnrs = self._read_cpu(
             path_scaling_gvrnrs).rstrip('\n').split()
+        self.startup_governor = self._read_cpu(
+            path_startup_governor).rstrip('\n')
 
         # ensure the correct freq table is populated
         if self.scaling_driver == 'acpi-cpufreq':
@@ -95,11 +100,12 @@ class cpuFreqTest:
                 'scaling_available_frequencies')
             scaling_freqs = self._read_cpu(
                 path_scaling_freqs).rstrip('\n').split()
-            self.scaling_freqs = list(
-                map(
-                    int, scaling_freqs))
         else:
-            self.scaling_freqs = append_max_min()
+            scaling_freqs = append_max_min()
+        # cast freqs to int
+        self.scaling_freqs = list(
+            map(
+                int, scaling_freqs))
 
     @property
     def observe_interval(self):
@@ -264,7 +270,11 @@ class cpuFreqTest:
         and reset max and min frequencies files.
         """
         self.enable_all_cpu()
-        self.set_governors('ondemand')
+        if self.scaling_driver == 'acpi-cpufreq':
+            self.set_governors('ondemand')
+        else:
+            self.set_governors(self.startup_governor)
+
         present_cores = self._get_cores('present')
 
         for core in present_cores:
