@@ -8,11 +8,13 @@ todo/verify:
 * make reset() callable with '-r' arg
 * get min/max from min/max files and write to attributes
     - currently using min/max from freq scaling table
-* do rca on startup offset in scale_all_freq()
 
+todo optional (nice to have):
 * check if workload needs to scale with processor power
+    - can add setter or fn to update workload_n
 * add capabilities to track spawned threads from
-    callback timers (nice to have).
+    callback timers
+* do rca on startup offset in scale_all_freq()
 """
 
 from os import path
