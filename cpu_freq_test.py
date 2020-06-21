@@ -60,7 +60,7 @@ class cpuFreqTest:
         self._workload_n = random.randint(34512, 67845)
 
         # max, min percentage of avg freq allowed to pass,
-        # relative to target frequency
+        # relative to target freq
         # ex: max = 110, min = 90 is 20% passing tolerance
         self._max_freq_pct = 110
         self._min_freq_pct = 90
