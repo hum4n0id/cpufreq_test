@@ -39,13 +39,12 @@ class cpuFreqExec(Exception):
 class cpuFreqTest:
     def __init__(self):
         def append_max_min():
-            scaling_freqs = []
             path_max = path.join(
                 'cpu0', 'cpufreq', 'scaling_max_freq')
             path_min = path.join(
                 'cpu0', 'cpufreq', 'scaling_min_freq')
-            scaling_freqs.append(self._read_cpu(
-                path_max).rstrip('\n'))
+            scaling_freqs = [self._read_cpu(
+                path_max).rstrip('\n')]
             scaling_freqs.append(self._read_cpu(
                 path_min).rstrip('\n'))
 
