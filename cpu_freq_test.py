@@ -49,9 +49,6 @@ class cpuFreqTest:
         # ChainMap object constructor
         self.freq_chainmap = collections.ChainMap()
 
-        # factorial to calculate during core test, positive int
-        self._workload_n = random.randint(34512, 67845)
-
         # time to stay at frequency under load (sec)
         # more time = more resolution
         # should be gt observe_interval
@@ -62,13 +59,16 @@ class cpuFreqTest:
         # should be lt scale_duration
         self._observe_interval = .75
 
+        # factorial to calculate during core test, positive int
+        self._workload_n = random.randint(34512, 67845)
+
         # max, min percentage of avg freq allow to pass
         # relative to target frequency
         # ex: max = 110, min = 90 is 20% passing tolerance
         # self._max_freq_pct = 110
         self._max_freq_pct = 110
         self._min_freq_pct = 90
-        self._fail_count = 0  # fail bit
+        self._fail_count = 0  # init fail bit
 
         # attributes common to all cores
         self.path_root = '/sys/devices/system/cpu'
