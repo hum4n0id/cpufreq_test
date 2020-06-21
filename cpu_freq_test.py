@@ -12,8 +12,6 @@ todo/verify:
 todo optional (nice to have):
 * check if workload needs to scale with processor power
     - can add setter or fn to update workload_n
-* add capabilities to track spawned threads from
-    callback timers
 """
 
 from os import path
