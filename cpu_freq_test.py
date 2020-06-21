@@ -2,7 +2,7 @@
 
 """
 todo/verify:
-* implement argparse
+* implement argparse (almost complete)
 * change header to Canonical official syntax
 * expand exeception handling
 * make reset() callable with '-r' arg
