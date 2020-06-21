@@ -28,7 +28,7 @@ import signal
 import sys
 import math
 import pprint
-#from pudb import set_trace
+# from pudb import set_trace; set_trace()
 
 
 class cpuFreqExec(Exception):
@@ -68,7 +68,7 @@ class cpuFreqTest:
         # self._max_freq_pct = 110
         self._max_freq_pct = 110
         self._min_freq_pct = 90
-        self._fail_count = 0
+        self._fail_count = 0  # fail bit
 
         # attributes common to all cores
         self.path_root = '/sys/devices/system/cpu'
@@ -362,7 +362,6 @@ class cpuFreqTest:
 
         cpu_freq_ctest = cpuFreqCoreTest(core)
         cpu_freq_ctest.scale_all_freq()
-        # set_trace()
         # thread safe
         freq_map = cpu_freq_ctest.__call__()
 
