@@ -11,7 +11,6 @@ todo/verify:
 
 todo optional (nice to have):
 * check if workload needs to scale with processor power
-    - can add setter or fn to update workload_n
 """
 
 from os import path
@@ -19,13 +18,14 @@ import collections
 import itertools
 import multiprocessing
 import threading
-import psutil
 import random
 import signal
 import sys
 import math
 import pprint
-# from pudb import set_trace; set_trace()
+import psutil
+from pudb import set_trace
+# set_trace()
 
 
 class cpuFreqExec(Exception):
@@ -39,8 +39,6 @@ class cpuFreqExec(Exception):
 
 class cpuFreqTest:
     def __init__(self):
-        self._core_list = []  # ephermeral core list
-        self._thread_siblings = []  # sut hyperthread cores
         self.pid_list = []  # pids for core affinity assignment
         self.freq_result_map = {}  # final results
         # ChainMap object constructor
@@ -54,7 +52,7 @@ class cpuFreqTest:
         # frequency sampling interval (thread timer)
         # too low time = duplicate samples
         # should be lt scale_duration
-        self._observe_interval = .75
+        self._observe_interval = .6
 
         # factorial to calculate during core test, positive int
         self._workload_n = random.randint(34512, 67845)
@@ -91,7 +89,7 @@ class cpuFreqTest:
 
     @observe_interval.setter
     def observe_interval(self, idx):
-        """ Setter to pad/throttle observ_freq_cb()
+        """ Pad/throttle observ_freq_cb()
         prevents race condition (need to verify)?
         """
         for idx in range(2, 5):
@@ -154,7 +152,6 @@ class cpuFreqTest:
                         int(first_last[1]) + 1))
             else:
                 core_list += [int(first_last[0])]
-        self._core_list = core_list
         return core_list
 
     def _get_cores(self, fname):
@@ -232,6 +229,18 @@ class cpuFreqTest:
                 'online')
             self._write_cpu(abs_path, b'0')
 
+    def set_governors(self, governor):
+        """ Set/change cpu governor, perform on
+        all cores.
+        """
+        print('setting governor:', governor)
+        online_cores = self._get_cores('online')
+        for core in online_cores:
+            abs_path = path.join(
+                ('cpu' + str(core)),
+                'cpufreq', 'scaling_governor')
+            self._write_cpu(abs_path, governor.encode())
+
     def reset(self):
         """ Enable all offline cpus,
         and reset max and min frequencies files.
@@ -260,18 +269,6 @@ class cpuFreqTest:
                     self.scaling_freqs)).encode()
             # debug print ('min freq: ', min_freq)
             self._write_cpu(abs_path, min_freq)
-
-    def set_governors(self, governor):
-        """ Set/change cpu governor, perform on
-        all cores.
-        """
-        print ('setting governor:', governor)
-        online_cores = self._get_cores('online')
-        for cpu in online_cores:
-            abs_path = path.join(
-                ('cpu' + str(cpu)),
-                'cpufreq', 'scaling_governor')
-            self._write_cpu(abs_path, governor.encode())
 
     def run_test(self):
         """ Execute cpufreq test, process results and return
@@ -308,14 +305,14 @@ class cpuFreqTest:
             print('\nTest Failed')
             print('fail_count =', self._fail_count)
             return 1
-        else:
-            print('\nTest Passed')
-            return 0
+
+        print('\nTest Passed')
+        return 0
 
     def spawn_core_test(self):
         """ Spawn concurrent scale testing on all online cores.
         """
-        proc_list = list()
+        proc_list = []
         result_queue = multiprocessing.Queue()
         online_cores = self._get_cores('online')
 
@@ -390,13 +387,13 @@ class cpuFreqCoreTest(cpuFreqTest):
 
     @property
     def observed_freqs(self):
-        """ Getter to expose core's sampled freqs.
+        """ Expose core's sampled freqs.
         """
         return self.__observed_freqs
 
     @observed_freqs.setter
     def observed_freqs(self, idx, avg_freq=0):
-        """ Setter to align freq key/values and split result lists
+        """ Align freq key/values and split result lists
         for grouping.
         """
         scaling_freqs = list(reversed(self.scaling_freqs))
@@ -422,7 +419,7 @@ class cpuFreqCoreTest(cpuFreqTest):
 
     @property
     def observed_freqs_rdict(self):
-        """ Getter to expose raw freq samples.
+        """ Expose raw freq samples.
         """
         return self.__observed_rfreqs
 
@@ -476,7 +473,7 @@ class cpuFreqCoreTest(cpuFreqTest):
         for elm in freq_itr:
             freq_sum += elm - freq_deq.popleft()
             freq_deq.append(elm)
-            yield (freq_sum / n)
+            yield freq_sum / n
 
     def scale_all_freq(self):
         """ Primary class method to get running core freqs,
