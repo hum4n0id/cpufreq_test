@@ -47,7 +47,6 @@ class cpuFreqTest:
                 path_max).rstrip('\n')]
             scaling_freqs.append(self._read_cpu(
                 path_min).rstrip('\n'))
-
             return scaling_freqs
 
         self.pid_list = []  # pids for core affinity assignment
