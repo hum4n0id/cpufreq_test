@@ -59,10 +59,9 @@ class cpuFreqTest:
         # factorial to calculate during core test, positive int
         self._workload_n = random.randint(34512, 67845)
 
-        # max, min percentage of avg freq allow to pass
+        # max, min percentage of avg freq allowed to pass,
         # relative to target frequency
         # ex: max = 110, min = 90 is 20% passing tolerance
-        # self._max_freq_pct = 110
         self._max_freq_pct = 110
         self._min_freq_pct = 90
         self._fail_count = 0  # init fail bit
