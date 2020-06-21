@@ -220,9 +220,9 @@ class cpuFreqTest:
             set(self._get_cores('present'))
             & set(self._get_cores('offline')))
         print ('enabling the following cpus:', to_enable)
-        for cpu in to_enable:
+        for core in to_enable:
             abs_path = path.join(
-                ('cpu' + str(cpu)), 'online')
+                ('cpu' + str(core)), 'online')
             self._write_cpu(abs_path, b'1')
 
     def disable_thread_siblings(self):
@@ -231,9 +231,9 @@ class cpuFreqTest:
         """
         thread_siblings = []
         online_cpus = self._get_cores('online')
-        for cpu in online_cpus:
+        for core in online_cpus:
             abs_path = path.join(
-                self.path_root, ('cpu' + str(cpu)),
+                self.path_root, ('cpu' + str(core)),
                 'topology', 'thread_siblings_list')
             # second core is sibling
             thread_siblings += self._get_cores(abs_path)[1:]
@@ -241,9 +241,9 @@ class cpuFreqTest:
         # prefer set for binary &
         to_disable = set(thread_siblings) & set(online_cpus)
 
-        for sib in to_disable:
+        for core in to_disable:
             abs_path = path.join(
-                self.path_root, ('cpu' + str(sib)),
+                self.path_root, ('cpu' + str(core)),
                 'online')
             self._write_cpu(abs_path, b'0')
 
@@ -267,10 +267,10 @@ class cpuFreqTest:
         self.set_governors('ondemand')
         present_cores = self._get_cores('present')
 
-        for cpu in present_cores:
+        for core in present_cores:
             # reset max freq
             abs_path = path.join(
-                self.path_root, ('cpu' + str(cpu)),
+                self.path_root, ('cpu' + str(core)),
                 'cpufreq', 'scaling_max_freq')
             max_freq = str(
                 max(
@@ -280,7 +280,7 @@ class cpuFreqTest:
 
             # reset min freq
             abs_path = path.join(
-                self.path_root, ('cpu' + str(cpu)),
+                self.path_root, ('cpu' + str(core)),
                 'cpufreq', 'scaling_min_freq')
             min_freq = str(
                 min(
