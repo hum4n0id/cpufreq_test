@@ -14,7 +14,6 @@ todo optional (nice to have):
     - can add setter or fn to update workload_n
 * add capabilities to track spawned threads from
     callback timers
-* do rca on startup offset in scale_all_freq()
 """
 
 from os import path
