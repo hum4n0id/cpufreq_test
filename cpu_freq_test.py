@@ -76,12 +76,15 @@ class cpuFreqTest:
 
         # attributes common to all cores
         self.path_root = '/sys/devices/system/cpu'
+        # cpufreq driver
         path_scaling_driver = path.join(
             'cpu0', 'cpufreq', 'scaling_driver')
-        path_scaling_gvrnrs = path.join(
-            'cpu0', 'cpufreq', 'scaling_available_governors')
         self.scaling_driver = self._read_cpu(
             path_scaling_driver).rstrip('\n')
+
+        # available governors
+        path_scaling_gvrnrs = path.join(
+            'cpu0', 'cpufreq', 'scaling_available_governors')
         self.scaling_gvrnrs = self._read_cpu(
             path_scaling_gvrnrs).rstrip('\n').split()
 
