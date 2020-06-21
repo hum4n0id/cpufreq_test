@@ -91,7 +91,7 @@ class cpuFreqTest:
             path_scaling_gvrnrs).rstrip('\n').split()
 
         if self.scaling_driver == 'intel_pstate':
-            scaling_freqs = append_max_min()
+            self.scaling_freqs = append_max_min()
         else:
             scaling_freqs = self._read_cpu(
                 path_scaling_freqs).rstrip('\n').split()
