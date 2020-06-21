@@ -89,14 +89,14 @@ class cpuFreqTest:
         self.scaling_gvrnrs = self._read_cpu(
             path_scaling_gvrnrs).rstrip('\n').split()
 
-        if self.scaling_driver == 'intel_pstate':
-            self.scaling_freqs = append_max_min()
-        else:
+        if self.scaling_driver == 'acpi-cpufreq':
             scaling_freqs = self._read_cpu(
                 path_scaling_freqs).rstrip('\n').split()
             self.scaling_freqs = list(
                 map(
                     int, scaling_freqs))
+        else:
+            self.scaling_freqs = append_max_min()
 
     @property
     def observe_interval(self):
