@@ -30,6 +30,7 @@ import psutil
 class CpuFreqExec(Exception):
     """ Exception handling.
     """
+
     def __init__(self, message):
         self.message = message
         # logging error
@@ -37,6 +38,9 @@ class CpuFreqExec(Exception):
 
 
 class CpuFreqTest:
+    """ Test cpufreq scaling capabilities.
+    """
+
     def __init__(self):
         def append_max_min():
             scaling_freqs = []
@@ -396,6 +400,7 @@ class CpuFreqCoreTest(CpuFreqTest):
     """ Subclass to facilitate concurrent frequency scaling.
     Every physical core will self-test freq. scaling capabilities at once.
     """
+
     def __init__(self, core):
         super().__init__()
         # mangle instance attributes
