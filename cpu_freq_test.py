@@ -71,8 +71,8 @@ class cpuFreqTest:
         # max, min percentage of avg freq allowed to pass,
         # relative to target freq
         # ex: max = 110, min = 90 is 20% passing tolerance
-        self._max_freq_pct = 100
-        self._min_freq_pct = 100
+        self._max_freq_pct = 110
+        self._min_freq_pct = 90
         self._fail_count = 0  # init fail bit
 
         # attributes common to all cores
