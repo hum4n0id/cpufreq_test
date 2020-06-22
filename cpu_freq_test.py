@@ -66,7 +66,7 @@ class CpuFreqTest:
         self._observe_interval = .6
 
         # factorial to calculate during core test, positive int
-        self._workload_n = random.randint(34512, 67845)
+        self.workload_n = random.randint(34512, 67845)
 
         # max, min percentage of avg freq allowed to pass,
         # relative to target freq
@@ -489,12 +489,7 @@ class CpuFreqCoreTest(CpuFreqTest):
         for grouping.
         """
         scaling_freqs = list(reversed(self.scaling_freqs))
-        # offset keys to correct startup offset
-        if idx:
-            target_freq = scaling_freqs[idx - 1]
-        else:
-            target_freq = scaling_freqs[idx]
-
+        target_freq = scaling_freqs[idx]
         freq_avg = self.calc_freq_avg(self.__observed_freqs)
 
         for freq in freq_avg:
@@ -504,8 +499,6 @@ class CpuFreqCoreTest(CpuFreqTest):
             # pack results for raw data record
             self.__observed_freqs_rdict.update(
                 {target_freq: self.__observed_freqs})
-        # reset list for next frequency
-        self.__observed_freqs = []
 
     def scale_all_freq(self):
         """ Primary class method to get running core freqs,
@@ -547,14 +540,16 @@ class CpuFreqCoreTest(CpuFreqTest):
                 callback=self.observe_freq_cb)
             # init data sampling
             observe_freq.observe()
-            # map freq results to core
-            self.map_observed_freqs(idx)
             # pass random int for load generation
             execute_workload(
-                self._workload_n)
+                self.workload_n)
             visualize_freq(freq)
             # reset signal alarm trigger bit
             self.__stop_loop = 0
+            # map freq results to core
+            self.map_observed_freqs(idx)
+            # reset list for next frequency
+            self.__observed_freqs = []
 
         # setup paths
         abs_path_setspd = path.join(
