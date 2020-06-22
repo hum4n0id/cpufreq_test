@@ -5,6 +5,8 @@ todo/verify:
 * implement argparse (almost complete)
 * change header to Canonical official syntax
 * expand exeception handling
+    - move and/or add to calling methods/fns
+    - ex: traceback custom exception -> oserror
 * make reset() callable with '-r' arg
 * get min/max from min/max files and write to attributes
     - currently using min/max from freq scaling table
@@ -30,7 +32,6 @@ import psutil
 class CpuFreqExec(Exception):
     """ Exception handling.
     """
-
     def __init__(self, message):
         self.message = message
         # logging error
@@ -40,7 +41,6 @@ class CpuFreqExec(Exception):
 class CpuFreqTest:
     """ Test cpufreq scaling capabilities.
     """
-
     def __init__(self):
         def append_max_min():
             scaling_freqs = []
@@ -65,9 +65,8 @@ class CpuFreqTest:
         self.scale_duration = 15
 
         # frequency sampling interval (thread timer)
-        # too low time = duplicate samples
         # should be lt scale_duration
-        self._observe_interval = .6
+        self._observe_interval = .5
 
         # factorial to calculate during core test, positive int
         self.workload_n = random.randint(34512, 67845)
@@ -141,9 +140,9 @@ class CpuFreqTest:
         try:
             with open(abs_path, 'rb') as f:
                 data = f.read().decode('utf-8')
-        except Exception:
-            raise CpuFreqExec(
-                'ERROR: unable to read file:', abs_path)
+        except OSError:
+            # change to logging.error
+            print('ERROR: unable to read file:', abs_path)
         else:
             return data
 
@@ -157,9 +156,9 @@ class CpuFreqTest:
         try:
             with open(abs_path, 'wb') as f:
                 f.write(data)
-        except Exception:
-            raise CpuFreqExec(
-                'ERROR: unable to write file:', abs_path)
+        except OSError:
+            # change to logging.error
+            print('ERROR: unable to write file:', abs_path)
         else:
             return data
 
@@ -261,7 +260,7 @@ class CpuFreqTest:
         """ Set/change cpu governor, perform on
         all cores.
         """
-        print('setting governor:', governor)
+        print('* setting governor:', governor)
         online_cores = self._get_cores('online')
         for core in online_cores:
             abs_path = path.join(
@@ -400,7 +399,6 @@ class CpuFreqCoreTest(CpuFreqTest):
     """ Subclass to facilitate concurrent frequency scaling.
     Every physical core will self-test freq. scaling capabilities at once.
     """
-
     def __init__(self, core):
         super().__init__()
         # mangle instance attributes
@@ -453,62 +451,61 @@ class CpuFreqCoreTest(CpuFreqTest):
     def observe_freq_cb(self):
         """ Callback method to sample frequency.
         """
-        # sample current frequency
-        self.__observed_freqs.append(
-            self.get_cur_freq())
-        # matrix mode
-        print(self.__observed_freqs)
-
-    def get_cur_freq(self):
-        """ Get current frequency.
-        """
-        online_cores = super()._get_cores('online')
-        if self.__instance_core in online_cores:
+        def get_cur_freq():
+            """ Get current frequency.
+            """
             abs_path = path.join(
                 self.path_root, self.__instance_cpu,
                 'cpufreq', 'scaling_cur_freq')
-            freqs = super()._read_cpu(
-                abs_path).rstrip('\n').split()[0]
-            return int(freqs)
+            # may be gratitous; exec handling after call
+            try:
+                freqs = self._read_cpu(
+                    abs_path).rstrip('\n').split()[0]
+                return int(freqs)
 
-    def calc_freq_avg(self, freqs, n=3):
-        """ Calculate moving average of observed_freqs.
-        """
-        freq_itr = iter(freqs)
-        freq_deq = collections.deque(
-            itertools.islice(freq_itr, n - 1))
-        freq_deq.appendleft(0)
-        freq_sum = sum(freq_deq)
-        for elm in freq_itr:
-            freq_sum += elm - freq_deq.popleft()
-            freq_deq.append(elm)
-            yield freq_sum / n
+            except Exception:
+                raise CpuFreqExec(
+                    'ERROR: unable to query freq on core',
+                    self.__instance_core)
 
-    def map_observed_freqs(self, idx):
-        """ Align freq key/values and split result lists
-        for grouping.
-        """
-        scaling_freqs = list(reversed(self.scaling_freqs))
-        target_freq = scaling_freqs[idx]
-        freq_avg = self.calc_freq_avg(self.__observed_freqs)
-
-        for freq in freq_avg:
-            # append observed_freq list to dict value with target freq as key
-            self.__observed_freqs_dict.update(
-                {target_freq: freq})
-            # pack results for raw data record
-            self.__observed_freqs_rdict.update(
-                {target_freq: self.__observed_freqs})
+        # sample current frequency
+        self.__observed_freqs.append(
+            get_cur_freq())
+        # matrix mode
+        print(self.__observed_freqs)
 
     def scale_all_freq(self):
         """ Primary class method to get running core freqs,
         nested fns for encapsulation.
         """
-        def execute_workload(n):
-            """ Perform maths to load core.
+        def calc_freq_avg(freqs, n=3):
+            """ Calculate moving average of observed_freqs.
             """
-            while not self.__stop_loop:
-                math.factorial(n)
+            freq_itr = iter(freqs)
+            freq_deq = collections.deque(
+                itertools.islice(freq_itr, n - 1))
+            freq_deq.appendleft(0)
+            freq_sum = sum(freq_deq)
+            for elm in freq_itr:
+                freq_sum += elm - freq_deq.popleft()
+                freq_deq.append(elm)
+                yield freq_sum / n
+
+        def map_observed_freqs(idx):
+            """ Align freq key/values and split result lists
+            for grouping.
+            """
+            scaling_freqs = list(reversed(self.scaling_freqs))
+            target_freq = scaling_freqs[idx]
+            freq_avg = calc_freq_avg(self.__observed_freqs)
+
+            # write avg freq to dict value with target freq as key
+            for freq in freq_avg:
+                self.__observed_freqs_dict.update(
+                    {target_freq: freq})
+                # pack results for raw data record
+                self.__observed_freqs_rdict.update(
+                    {target_freq: self.__observed_freqs})
 
         def handle_alarm(*args):
             """ Alarm trigger callback,
@@ -516,15 +513,19 @@ class CpuFreqCoreTest(CpuFreqTest):
             """
             self.__stop_loop = 1
 
+        def execute_workload(n):
+            """ Perform maths to load core.
+            """
+            while not self.__stop_loop:
+                math.factorial(n)
+
         def visualize_freq(freq):
             """ Method to provide feedback for debug/verbose
             logging.
             """
-            print('##########################')
-            print('testing: ', self.__instance_cpu)
-            print('target freq: ', freq.decode())
-            print('workload n:', self.workload_n)
-            print('##########################')
+            print('* testing: %s || target freq: %s || workload n: %i'
+                  % (self.__instance_cpu, freq.decode(),
+                     self.workload_n))
 
         def scale_to_freq(freq, idx):
             """ Proxy method to scale core to freq.
@@ -547,7 +548,7 @@ class CpuFreqCoreTest(CpuFreqTest):
             # stop workload loop
             self.__stop_loop = 0
             # map freq results to core
-            self.map_observed_freqs(idx)
+            map_observed_freqs(idx)
             # reset list for next frequency
             self.__observed_freqs = []
 
