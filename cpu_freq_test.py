@@ -202,7 +202,7 @@ class cpuFreqTest:
                     # append result P/F
                     new_inner_val.append('Pass')
                 else:
-                    # append result P/F
+                    # ""
                     new_inner_val.append('Fail')
                     # increment fail bit
                     self._fail_count += 1
