@@ -225,7 +225,7 @@ class CpuFreqTest:
         to_enable = (
             set(self._get_cores('present'))
             & set(self._get_cores('offline')))
-        print('enabling the following cpus:', to_enable)
+        print('enabling the following cores:', to_enable)
         for core in to_enable:
             abs_path = path.join(
                 ('cpu' + str(core)), 'online')
@@ -346,7 +346,6 @@ class CpuFreqTest:
         online_cores = self._get_cores('online')
 
         for core in online_cores:
-            print('core:', core)
             # assign affinity per online_core list
             affinity = [core]
             affinity_dict = dict(
@@ -377,35 +376,31 @@ class CpuFreqTest:
         """
         # get self pid
         proc = psutil.Process()
-
+        # record pid for tracking
         self.pid_list.append(proc.pid)
-        print('PIDs:', self.pid_list)
-
+        # print('PIDs:', self.pid_list)
+        # assign affinity to process
         proc.cpu_affinity(affinity)
-        core_affinity = proc.cpu_affinity()
-        print('core affinity:', core_affinity)
         core = int(affinity[0])
-        print('* testing core:', core)
-
+        # intantiate core test
         cpu_freq_ctest = CpuFreqCoreTest(core)
+        # execute freq scaling
         cpu_freq_ctest.scale_all_freq()
-        # thread safe
         freq_map = cpu_freq_ctest.__call__()
 
         # map results to core
         output.put(freq_map)
-        print(self.pid_list)
 
 
 class CpuFreqCoreTest(CpuFreqTest):
     """ Subclass to facilitate concurrent frequency scaling.
     Every physical core will self-test freq. scaling capabilities at once.
     """
-    def __init__(self, cpu_num):
+    def __init__(self, core):
         super().__init__()
         # mangle instance attributes
-        self.__instance_core = int(cpu_num)  # core under test
-        self.__instance_cpu = 'cpu' + str(cpu_num)  # str cpu ref
+        self.__instance_core = int(core)  # core under test
+        self.__instance_cpu = 'cpu' + str(core)  # str cpu ref
         self.__stop_loop = 0  # signal.alarm semaphore
         self.__observed_freqs = []  # recorded freqs
         self.__observed_freqs_dict = {}  # core: recorded freqs
@@ -507,7 +502,6 @@ class CpuFreqCoreTest(CpuFreqTest):
         def execute_workload(n):
             """ Perform maths to load core.
             """
-            print('executing workload, n =', n)
             while not self.__stop_loop:
                 math.factorial(n)
 
@@ -522,10 +516,10 @@ class CpuFreqCoreTest(CpuFreqTest):
             logging.
             """
             print('##########################')
-            print('testing cpu: ', self.__instance_cpu)
-            print('set freq: ', freq.decode())
+            print('testing: ', self.__instance_cpu)
+            print('target freq: ', freq.decode())
+            print('workload n:', self.workload_n)
             print('##########################')
-            pass
 
         def scale_to_freq(freq, idx):
             """ Proxy method to scale core to freq.
@@ -538,13 +532,14 @@ class CpuFreqCoreTest(CpuFreqTest):
             observe_freq = self.ObserveFreq(
                 interval=self.observe_interval,
                 callback=self.observe_freq_cb)
-            # init data sampling
+            # logging
+            visualize_freq(freq)
+            # start data sampling
             observe_freq.observe()
             # pass random int for load generation
             execute_workload(
                 self.workload_n)
-            visualize_freq(freq)
-            # reset signal alarm trigger bit
+            # stop workload loop
             self.__stop_loop = 0
             # map freq results to core
             self.map_observed_freqs(idx)
