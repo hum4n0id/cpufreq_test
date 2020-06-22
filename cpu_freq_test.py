@@ -27,7 +27,7 @@ import psutil
 # from pudb import set_trace; set_trace()
 
 
-class cpuFreqExec(Exception):
+class CpuFreqExec(Exception):
     """ Exception handling.
     """
     def __init__(self, message):
@@ -36,7 +36,7 @@ class cpuFreqExec(Exception):
         print(message)
 
 
-class cpuFreqTest:
+class CpuFreqTest:
     def __init__(self):
         def append_max_min():
             scaling_freqs = []
@@ -138,7 +138,7 @@ class cpuFreqTest:
             with open(abs_path, 'rb') as f:
                 data = f.read().decode('utf-8')
         except Exception:
-            raise cpuFreqExec(
+            raise CpuFreqExec(
                 'ERROR: unable to read file:', abs_path)
         else:
             return data
@@ -154,7 +154,7 @@ class cpuFreqTest:
             with open(abs_path, 'wb') as f:
                 f.write(data)
         except Exception:
-            raise cpuFreqExec(
+            raise CpuFreqExec(
                 'ERROR: unable to write file:', abs_path)
         else:
             return data
@@ -189,7 +189,7 @@ class cpuFreqTest:
         return core_list
 
     def _process_results(self):
-        """ Process results from cpuFreqCoreTest()
+        """ Process results from CpuFreqCoreTest()
         """
         # transpose and append results from subclass
         def comp_freq_dict(inner_key, inner_val):
@@ -346,7 +346,7 @@ class cpuFreqTest:
         online_cores = self._get_cores('online')
 
         for core in online_cores:
-            print('core: ', core)
+            print('core:', core)
             # assign affinity per online_core list
             affinity = [core]
             affinity_dict = dict(
@@ -378,16 +378,16 @@ class cpuFreqTest:
         # get self pid
         proc = psutil.Process()
 
-        print('PID: ', proc.pid)
         self.pid_list.append(proc.pid)
+        print('PIDs:', self.pid_list)
 
         proc.cpu_affinity(affinity)
-        core_aff = proc.cpu_affinity()
-        print('core affinity : ', core_aff)
+        core_affinity = proc.cpu_affinity()
+        print('core affinity:', core_affinity)
         core = int(affinity[0])
-        print('* testing core: ', core)
+        print('* testing core:', core)
 
-        cpu_freq_ctest = cpuFreqCoreTest(core)
+        cpu_freq_ctest = CpuFreqCoreTest(core)
         cpu_freq_ctest.scale_all_freq()
         # thread safe
         freq_map = cpu_freq_ctest.__call__()
@@ -397,7 +397,7 @@ class cpuFreqTest:
         print(self.pid_list)
 
 
-class cpuFreqCoreTest(cpuFreqTest):
+class CpuFreqCoreTest(CpuFreqTest):
     """ Subclass to facilitate concurrent frequency scaling.
     Every physical core will self-test freq. scaling capabilities at once.
     """
@@ -410,7 +410,6 @@ class cpuFreqCoreTest(cpuFreqTest):
         self.__observed_freqs = []  # recorded freqs
         self.__observed_freqs_dict = {}  # core: recorded freqs
         self.__observed_freqs_rdict = {}  # raw recorded freqs (float)
-        self.__freq_avg = []  # running freq avg
 
     def __call__(self):
         """ Have subclass return dict '{core: avg_freq}'
@@ -425,32 +424,6 @@ class cpuFreqCoreTest(cpuFreqTest):
         """ Expose core's sampled freqs.
         """
         return self.__observed_freqs
-
-    @observed_freqs.setter
-    def observed_freqs(self, idx, avg_freq=0):
-        """ Align freq key/values and split result lists
-        for grouping.
-        """
-        scaling_freqs = list(reversed(self.scaling_freqs))
-        # offset keys to correct startup offset
-        if idx:
-            target_freq = scaling_freqs[idx - 1]
-        else:
-            target_freq = scaling_freqs[idx]
-
-        self.__freq_avg = self.calc_freq_avg(
-            self.__observed_freqs)
-
-        for freq in self.__freq_avg:
-            avg_freq = freq
-        # append observed_freq list to dict value with target freq as key
-        self.__observed_freqs_dict.update(
-            {target_freq: avg_freq})
-        # pack results for raw data record
-        self.__observed_freqs_rdict.update(
-            {target_freq: self.__observed_freqs})
-        # reset list for next frequency
-        self.__observed_freqs = []
 
     @property
     def observed_freqs_rdict(self):
@@ -483,6 +456,7 @@ class cpuFreqCoreTest(cpuFreqTest):
         # sample current frequency
         self.__observed_freqs.append(
             self.get_cur_freq())
+        # matrix mode
         print(self.__observed_freqs)
 
     def get_cur_freq(self):
@@ -510,6 +484,29 @@ class cpuFreqCoreTest(cpuFreqTest):
             freq_deq.append(elm)
             yield freq_sum / n
 
+    def map_observed_freqs(self, idx):
+        """ Align freq key/values and split result lists
+        for grouping.
+        """
+        scaling_freqs = list(reversed(self.scaling_freqs))
+        # offset keys to correct startup offset
+        if idx:
+            target_freq = scaling_freqs[idx - 1]
+        else:
+            target_freq = scaling_freqs[idx]
+
+        freq_avg = self.calc_freq_avg(self.__observed_freqs)
+
+        for freq in freq_avg:
+            # append observed_freq list to dict value with target freq as key
+            self.__observed_freqs_dict.update(
+                {target_freq: freq})
+            # pack results for raw data record
+            self.__observed_freqs_rdict.update(
+                {target_freq: self.__observed_freqs})
+        # reset list for next frequency
+        self.__observed_freqs = []
+
     def scale_all_freq(self):
         """ Primary class method to get running core freqs,
         nested fns for encapsulation.
@@ -517,8 +514,7 @@ class cpuFreqCoreTest(cpuFreqTest):
         def execute_workload(n):
             """ Perform maths to load core.
             """
-            print(' generating cpu load')
-            print(' n =', n)
+            print('executing workload, n =', n)
             while not self.__stop_loop:
                 math.factorial(n)
 
@@ -532,11 +528,10 @@ class cpuFreqCoreTest(cpuFreqTest):
             """ Method to provide feedback for debug/verbose
             logging.
             """
-            # print('##########################')
-            # print('CPU: ', self.__instance_cpu)
-            # print('set freq: ', freq.decode())
-            # print('observed_freq: ', self.get_cur_freq())
-            # print('##########################')
+            print('##########################')
+            print('testing cpu: ', self.__instance_cpu)
+            print('set freq: ', freq.decode())
+            print('##########################')
             pass
 
         def scale_to_freq(freq, idx):
@@ -552,8 +547,8 @@ class cpuFreqCoreTest(cpuFreqTest):
                 callback=self.observe_freq_cb)
             # init data sampling
             observe_freq.observe()
-            # call setter in parent class
-            self.observed_freqs = idx
+            # map freq results to core
+            self.map_observed_freqs(idx)
             # pass random int for load generation
             execute_workload(
                 self._workload_n)
@@ -562,7 +557,6 @@ class cpuFreqCoreTest(cpuFreqTest):
             self.__stop_loop = 0
 
         # setup paths
-        print('* scaling: ', self.__instance_cpu)
         abs_path_setspd = path.join(
             self.path_root, self.__instance_cpu,
             'cpufreq', 'scaling_setspeed')
@@ -572,18 +566,16 @@ class cpuFreqCoreTest(cpuFreqTest):
         abs_path_minspd = path.join(
             self.path_root, self.__instance_cpu,
             'cpufreq', 'scaling_min_freq')
-        print(' freq scaling table: ', self.scaling_freqs)
 
         # iterate over core supported freqs
         for idx, freq in enumerate(reversed(self.scaling_freqs)):
-            print(' scaling to: ', freq)
             freq = str(freq).encode()
             # userspace governor required to write to ./scaling_setspeed
             if self.scaling_driver == 'acpi-cpufreq':
                 try:
                     super()._write_cpu(abs_path_setspd, freq)
                 except Exception:
-                    raise cpuFreqExec(
+                    raise CpuFreqExec(
                         'ERROR: setting invalid frequency,\
                         scaling_setspeed!')
                 else:
@@ -596,14 +588,14 @@ class cpuFreqCoreTest(cpuFreqTest):
                 try:
                     super()._write_cpu(abs_path_maxspd, freq)
                 except Exception:
-                    raise cpuFreqExec(
+                    raise CpuFreqExec(
                         'ERROR: setting invalid frequency,\
                         scaling_max_freq!')
                 else:
                     try:
                         super()._write_cpu(abs_path_minspd, freq)
                     except Exception:
-                        raise cpuFreqExec(
+                        raise CpuFreqExec(
                             'ERROR: setting invalid frequency,\
                             scaling_min_freq!')
                     else:
@@ -614,7 +606,7 @@ class cpuFreqCoreTest(cpuFreqTest):
 
 
 def main():
-    cpu_freq_test = cpuFreqTest()
+    cpu_freq_test = CpuFreqTest()
     return(cpu_freq_test.run_test())
 
 
