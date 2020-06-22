@@ -10,7 +10,7 @@ todo/verify:
 * make reset() callable with '-r' arg
 * get min/max from min/max files and write to attributes
     - currently using min/max from freq scaling table
-
+* verify list default arguments
 todo optional (nice to have):
 * check if workload needs to scale with processor power
 """
@@ -42,7 +42,9 @@ class CpuFreqTest:
     """ Test cpufreq scaling capabilities.
     """
     def __init__(self):
-        def append_max_min(scaling_freqs=[]):
+        def append_max_min(scaling_freqs=None):
+            if scaling_freqs is None:
+                scaling_freqs = []
             path_max = path.join(
                 'cpu0', 'cpufreq', 'scaling_max_freq')
             path_min = path.join(
@@ -161,13 +163,12 @@ class CpuFreqTest:
         else:
             return data
 
-    def _list_core_rng(self, core_rng):
+    def _list_core_rng(self, core_rng, core_list=None):
         """ Method to convert core range to list prior
         to iteration.
         """
-        core_list = []
-        if not core_rng:
-            return core_list
+        if core_list is None:
+            core_list = []
         # allow iteration over range: rng
         for core in core_rng.split(','):
             first_last = core.split('-')
@@ -233,11 +234,12 @@ class CpuFreqTest:
                 ('cpu' + str(core)), 'online')
             self._write_cpu(abs_path, b'1')
 
-    def disable_thread_siblings(self):
+    def disable_thread_siblings(self, thread_siblings=None):
         """ Disable all threads attached to the same core,
         aka hyperthreading.
         """
-        thread_siblings = []
+        if thread_siblings is None:
+            thread_siblings = []
         online_cpus = self._get_cores('online')
         for core in online_cpus:
             abs_path = path.join(
@@ -339,10 +341,11 @@ class CpuFreqTest:
         print('\nTest Passed')
         return 0
 
-    def spawn_core_test(self):
+    def spawn_core_test(self, proc_list=None):
         """ Spawn concurrent scale testing on all online cores.
         """
-        proc_list = []
+        if proc_list is None:
+            proc_list = []
         # create queue for piping results
         result_queue = multiprocessing.Queue()
         online_cores = self._get_cores('online')
