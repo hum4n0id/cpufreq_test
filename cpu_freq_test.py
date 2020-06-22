@@ -52,7 +52,7 @@ class cpuFreqTest:
 
         self.pid_list = []  # pids for core affinity assignment
         self.freq_result_map = {}  # final results
-        # ChainMap object constructor
+        # chainmap object constructor
         self.freq_chainmap = collections.ChainMap()
 
         # time to stay at frequency under load (sec)
@@ -71,8 +71,8 @@ class cpuFreqTest:
         # max, min percentage of avg freq allowed to pass,
         # relative to target freq
         # ex: max = 110, min = 90 is 20% passing tolerance
-        self._max_freq_pct = 110
-        self._min_freq_pct = 90
+        self._max_freq_pct = 100
+        self._min_freq_pct = 100
         self._fail_count = 0  # init fail bit
 
         # attributes common to all cores
@@ -341,27 +341,33 @@ class cpuFreqTest:
         """ Spawn concurrent scale testing on all online cores.
         """
         proc_list = []
+        # create queue for piping results
         result_queue = multiprocessing.Queue()
         online_cores = self._get_cores('online')
 
         for core in online_cores:
-            print ('cpu: ', core)
+            print ('core: ', core)
+            # assign affinity per online_core list
             affinity = [core]
-            aff_dict = dict(
+            affinity_dict = dict(
                 affinity=affinity)
             proc = multiprocessing.Process(
                 target=self.run_child,
                 args=(result_queue,),
-                kwargs=aff_dict)
+                kwargs=affinity_dict)
+            # invoke core test
             proc.start()
             proc_list.append(proc)
 
         for core in online_cores:
+            # pipe results from core test
             child_queue = result_queue.get()
+            # append to chainmap object
             self.freq_chainmap = self.freq_chainmap.new_child(
                 child_queue)
 
         for proc in proc_list:
+            # terminate core test process
             proc.join()
             print ('process collapsed, joined parent')
 
