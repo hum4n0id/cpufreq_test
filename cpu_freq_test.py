@@ -42,8 +42,7 @@ class CpuFreqTest:
     """ Test cpufreq scaling capabilities.
     """
     def __init__(self):
-        def append_max_min():
-            scaling_freqs = []
+        def append_max_min(scaling_freqs=[]):
             path_max = path.join(
                 'cpu0', 'cpufreq', 'scaling_max_freq')
             path_min = path.join(
@@ -462,7 +461,6 @@ class CpuFreqCoreTest(CpuFreqTest):
                 freqs = self._read_cpu(
                     abs_path).rstrip('\n').split()[0]
                 return int(freqs)
-
             except Exception:
                 raise CpuFreqExec(
                     'ERROR: unable to query freq on core',
@@ -519,7 +517,7 @@ class CpuFreqCoreTest(CpuFreqTest):
             while not self.__stop_loop:
                 math.factorial(n)
 
-        def visualize_freq(freq):
+        def log_freq_scaling(freq):
             """ Method to provide feedback for debug/verbose
             logging.
             """
@@ -538,8 +536,8 @@ class CpuFreqCoreTest(CpuFreqTest):
             observe_freq = self.ObserveFreq(
                 interval=self.observe_interval,
                 callback=self.observe_freq_cb)
-            # logging
-            visualize_freq(freq)
+            # debug logging
+            log_freq_scaling(freq)
             # start data sampling
             observe_freq.observe()
             # pass random int for load generation
@@ -572,8 +570,8 @@ class CpuFreqCoreTest(CpuFreqTest):
                     super()._write_cpu(abs_path_setspd, freq)
                 except Exception:
                     raise CpuFreqExec(
-                        'ERROR: setting invalid frequency,\
-                        scaling_setspeed!')
+                        'ERROR: setting invalid frequency, %s'
+                        '@scaling_setspeed!' % freq)
                 else:
                     # begin scaling
                     scale_to_freq(freq, idx)
@@ -585,15 +583,15 @@ class CpuFreqCoreTest(CpuFreqTest):
                     super()._write_cpu(abs_path_maxspd, freq)
                 except Exception:
                     raise CpuFreqExec(
-                        'ERROR: setting invalid frequency,\
-                        scaling_max_freq!')
+                        'ERROR: setting invalid frequency, %s'
+                        '@scaling_max_freq!' % freq)
                 else:
                     try:
                         super()._write_cpu(abs_path_minspd, freq)
                     except Exception:
                         raise CpuFreqExec(
-                            'ERROR: setting invalid frequency,\
-                            scaling_min_freq!')
+                            'ERROR: setting invalid frequency, %s'
+                            '@scaling_min_freq!' % freq)
                     else:
                         # begin scaling
                         scale_to_freq(freq, idx)
