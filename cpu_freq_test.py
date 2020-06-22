@@ -33,7 +33,7 @@ class cpuFreqExec(Exception):
     def __init__(self, message):
         self.message = message
         # logging error
-        print (message)
+        print(message)
 
 
 class cpuFreqTest:
@@ -225,7 +225,7 @@ class cpuFreqTest:
         to_enable = (
             set(self._get_cores('present'))
             & set(self._get_cores('offline')))
-        print ('enabling the following cpus:', to_enable)
+        print('enabling the following cpus:', to_enable)
         for core in to_enable:
             abs_path = path.join(
                 ('cpu' + str(core)), 'online')
@@ -285,7 +285,7 @@ class cpuFreqTest:
             max_freq = str(
                 max(
                     self.scaling_freqs)).encode()
-            # debug print ('max freq: ', max_freq)
+            # debug print('max freq: ', max_freq)
             self._write_cpu(abs_path, max_freq)
 
             # reset min freq
@@ -295,7 +295,7 @@ class cpuFreqTest:
             min_freq = str(
                 min(
                     self.scaling_freqs)).encode()
-            # debug print ('min freq: ', min_freq)
+            # debug print('min freq: ', min_freq)
             self._write_cpu(abs_path, min_freq)
 
     def run_test(self):
@@ -321,7 +321,7 @@ class cpuFreqTest:
         # reset state and cleanup
         print('##[resetting cpus]##')
         self.reset()
-        print ('active threads:', threading.active_count())
+        print('active threads:', threading.active_count())
         print('dangling pids:', self.pid_list)
         # process results
         print('\n##[results]##')
@@ -346,7 +346,7 @@ class cpuFreqTest:
         online_cores = self._get_cores('online')
 
         for core in online_cores:
-            print ('core: ', core)
+            print('core: ', core)
             # assign affinity per online_core list
             affinity = [core]
             affinity_dict = dict(
@@ -369,7 +369,7 @@ class cpuFreqTest:
         for proc in proc_list:
             # terminate core test process
             proc.join()
-            print ('process collapsed, joined parent')
+            print('process collapsed, joined parent')
 
     def run_child(self, output, affinity):
         """ Subclass instantiation & constructor for individual
@@ -378,12 +378,12 @@ class cpuFreqTest:
         # get self pid
         proc = psutil.Process()
 
-        print ('PID: ', proc.pid)
+        print('PID: ', proc.pid)
         self.pid_list.append(proc.pid)
 
         proc.cpu_affinity(affinity)
         core_aff = proc.cpu_affinity()
-        print ('core affinity : ', core_aff)
+        print('core affinity : ', core_aff)
         core = int(affinity[0])
         print('* testing core: ', core)
 
@@ -517,8 +517,8 @@ class cpuFreqCoreTest(cpuFreqTest):
         def execute_workload(n):
             """ Perform maths to load core.
             """
-            print (' generating cpu load')
-            print (' n =', n)
+            print(' generating cpu load')
+            print(' n =', n)
             while not self.__stop_loop:
                 math.factorial(n)
 
@@ -532,11 +532,11 @@ class cpuFreqCoreTest(cpuFreqTest):
             """ Method to provide feedback for debug/verbose
             logging.
             """
-            # print ('##########################')
-            # print ('CPU: ', self.__instance_cpu)
+            # print('##########################')
+            # print('CPU: ', self.__instance_cpu)
             # print('set freq: ', freq.decode())
-            # print ('observed_freq: ', self.get_cur_freq())
-            # print ('##########################')
+            # print('observed_freq: ', self.get_cur_freq())
+            # print('##########################')
             pass
 
         def scale_to_freq(freq, idx):
@@ -572,11 +572,11 @@ class cpuFreqCoreTest(cpuFreqTest):
         abs_path_minspd = path.join(
             self.path_root, self.__instance_cpu,
             'cpufreq', 'scaling_min_freq')
-        print (' freq scaling table: ', self.scaling_freqs)
+        print(' freq scaling table: ', self.scaling_freqs)
 
         # iterate over core supported freqs
         for idx, freq in enumerate(reversed(self.scaling_freqs)):
-            print (' scaling to: ', freq)
+            print(' scaling to: ', freq)
             freq = str(freq).encode()
             # userspace governor required to write to ./scaling_setspeed
             if self.scaling_driver == 'acpi-cpufreq':
