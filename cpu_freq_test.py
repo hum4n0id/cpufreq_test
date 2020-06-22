@@ -322,7 +322,7 @@ class cpuFreqTest:
         print('##[resetting cpus]##')
         self.reset()
         print ('active threads:', threading.active_count())
-
+        print('dangling pids:', self.pid_list)
         # process results
         print('\n##[results]##')
         print('-legend:')
@@ -394,6 +394,7 @@ class cpuFreqTest:
 
         # map results to core
         output.put(freq_map)
+        print(self.pid_list)
 
 
 class cpuFreqCoreTest(cpuFreqTest):
