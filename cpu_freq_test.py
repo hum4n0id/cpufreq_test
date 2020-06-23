@@ -224,7 +224,6 @@ class CpuFreqTest:
                     # append result P/F
                     new_inner_val.append('Pass')
                 else:
-                    # ""
                     new_inner_val.append('Fail')
                     # increment fail bit
                     self._fail_count += 1
@@ -247,7 +246,7 @@ class CpuFreqTest:
         to_enable = (
             set(self._get_cores('present'))
             & set(self._get_cores('offline')))
-        print('enabling the following cores:', to_enable)
+        print('* enabling the following cores:', to_enable)
         for core in to_enable:
             abs_path = path.join(
                 ('cpu' + str(core)), 'online')
@@ -296,16 +295,16 @@ class CpuFreqTest:
 
             for core in present_cores:
                 # reset max freq
-                print('* restoring starup max freq')
+                print('* restoring startup max freq')
                 self._write_cpu(
                     self.path_max_freq, self.startup_max_freq)
                 # reset min freq
-                print('* restoring starup min freq')
+                print('* restoring startup min freq')
                 self._write_cpu(
                     self.path_min_freq, self.startup_min_freq)
 
         self.enable_all_cpu()
-        ('* restoring starup governor')
+        ('* restoring startup governor')
         self.set_governors(self.startup_governor)
         if self.scaling_driver != 'acpi-cpufreq':
             set_max_min()
@@ -570,7 +569,7 @@ class CpuFreqCoreTest(CpuFreqTest):
             # userspace governor required to write to ./scaling_setspeed
             if self.scaling_driver == 'acpi-cpufreq':
                 try:
-                    super()._write_cpu(abs_path_setspd, freq)
+                    self._write_cpu(abs_path_setspd, freq)
                 except Exception:
                     raise CpuFreqExec(
                         'ERROR: setting invalid frequency, %s'
@@ -583,14 +582,14 @@ class CpuFreqCoreTest(CpuFreqTest):
             else:
                 # per cpufreq, set max_freq before min_freq
                 try:
-                    super()._write_cpu(self.path_max_freq, freq)
+                    self._write_cpu(self.path_max_freq, freq)
                 except Exception:
                     raise CpuFreqExec(
                         'ERROR: setting invalid frequency, %s'
                         '@scaling_max_freq!' % freq)
                 else:
                     try:
-                        super()._write_cpu(self.path_min_freq, freq)
+                        self._write_cpu(self.path_min_freq, freq)
                     except Exception:
                         raise CpuFreqExec(
                             'ERROR: setting invalid frequency, %s'
