@@ -8,8 +8,6 @@ todo/verify:
     - move and/or add to calling methods/fns
     - ex: traceback custom exception -> oserror
 * make reset() callable with '-r' arg
-* get min/max from min/max files and write to attributes
-    - currently using min/max from freq scaling table
 * verify list default arguments
 todo optional (nice to have):
 * check if workload needs to scale with processor power
