@@ -42,9 +42,8 @@ class CpuFreqTest:
     """ Test cpufreq scaling capabilities.
     """
     def __init__(self):
-        def append_max_min(scaling_freqs=None):
-            if scaling_freqs is None:
-                scaling_freqs = []
+        def append_max_min():
+            scaling_freqs = []
             path_max = path.join(
                 'cpu0', 'cpufreq', 'scaling_max_freq')
             path_min = path.join(
@@ -105,7 +104,30 @@ class CpuFreqTest:
             scaling_freqs = self._read_cpu(
                 path_scaling_freqs).rstrip('\n').split()
         else:
+            self.path_max_freq = path.join(
+                'cpu0', 'cpufreq',
+                'scaling_max_freq')
+            self.path_min_freq = path.join(
+                'cpu0', 'cpufreq',
+                'scaling_min_freq')
+            self.startup_max_freq = self._read_cpu(
+                self.path_max_freq).rstrip('\n')
+            self.startup_min_freq = self._read_cpu(
+                self.path_min_freq).rstrip('\n')
+
             scaling_freqs = append_max_min()
+
+        # self.path_max_freq = path.join(
+        #     'cpu0', 'cpufreq',
+        #     'scaling_max_freq')
+        # self.path_min_freq = path.join(
+        #     'cpu0', 'cpufreq',
+        #     'scaling_min_freq')
+        # self.startup_max_freq = self._read_cpu(
+        #     self.path_max_freq).rstrip('\n')
+        # self.startup_min_freq = self._read_cpu(
+        #     self.path_min_freq).rstrip('\n')
+
         # cast freqs to int
         self.scaling_freqs = list(
             map(
@@ -163,12 +185,11 @@ class CpuFreqTest:
         else:
             return data
 
-    def _list_core_rng(self, core_rng, core_list=None):
+    def _list_core_rng(self, core_rng):
         """ Method to convert core range to list prior
         to iteration.
         """
-        if core_list is None:
-            core_list = []
+        core_list = []
         # allow iteration over range: rng
         for core in core_rng.split(','):
             first_last = core.split('-')
@@ -234,12 +255,11 @@ class CpuFreqTest:
                 ('cpu' + str(core)), 'online')
             self._write_cpu(abs_path, b'1')
 
-    def disable_thread_siblings(self, thread_siblings=None):
+    def disable_thread_siblings(self):
         """ Disable all threads attached to the same core,
         aka hyperthreading.
         """
-        if thread_siblings is None:
-            thread_siblings = []
+        thread_siblings = []
         online_cpus = self._get_cores('online')
         for core in online_cpus:
             abs_path = path.join(
@@ -273,34 +293,24 @@ class CpuFreqTest:
         """ Enable all offline cpus,
         and reset max and min frequencies files.
         """
+        def set_max_min():
+            present_cores = self._get_cores('present')
+
+            for core in present_cores:
+                # reset max freq
+                print('* restoring starup max freq')
+                self._write_cpu(
+                    self.path_max_freq, self.startup_max_freq)
+                # reset min freq
+                print('* restoring starup min freq')
+                self._write_cpu(
+                    self.path_min_freq, self.startup_min_freq)
+
         self.enable_all_cpu()
-        if self.scaling_driver == 'acpi-cpufreq':
-            self.set_governors('ondemand')
-        else:
-            self.set_governors(self.startup_governor)
-
-        present_cores = self._get_cores('present')
-
-        for core in present_cores:
-            # reset max freq
-            abs_path = path.join(
-                self.path_root, ('cpu' + str(core)),
-                'cpufreq', 'scaling_max_freq')
-            max_freq = str(
-                max(
-                    self.scaling_freqs)).encode()
-            # debug print('max freq: ', max_freq)
-            self._write_cpu(abs_path, max_freq)
-
-            # reset min freq
-            abs_path = path.join(
-                self.path_root, ('cpu' + str(core)),
-                'cpufreq', 'scaling_min_freq')
-            min_freq = str(
-                min(
-                    self.scaling_freqs)).encode()
-            # debug print('min freq: ', min_freq)
-            self._write_cpu(abs_path, min_freq)
+        ('* restoring starup governor')
+        self.set_governors(self.startup_governor)
+        if self.scaling_driver != 'acpi-cpufreq':
+            set_max_min()
 
     def run_test(self):
         """ Execute cpufreq test, process results and return
@@ -341,11 +351,10 @@ class CpuFreqTest:
         print('\nTest Passed')
         return 0
 
-    def spawn_core_test(self, proc_list=None):
+    def spawn_core_test(self):
         """ Spawn concurrent scale testing on all online cores.
         """
-        if proc_list is None:
-            proc_list = []
+        proc_list = []
         # create queue for piping results
         result_queue = multiprocessing.Queue()
         online_cores = self._get_cores('online')
@@ -466,8 +475,8 @@ class CpuFreqCoreTest(CpuFreqTest):
                 return int(freqs)
             except Exception:
                 raise CpuFreqExec(
-                    'ERROR: unable to query freq on core',
-                    self.__instance_core)
+                    'ERROR: unable to query freq on core %i'
+                    % self.__instance_core)
 
         # sample current frequency
         self.__observed_freqs.append(
@@ -553,16 +562,9 @@ class CpuFreqCoreTest(CpuFreqTest):
             # reset list for next frequency
             self.__observed_freqs = []
 
-        # setup paths
         abs_path_setspd = path.join(
             self.path_root, self.__instance_cpu,
             'cpufreq', 'scaling_setspeed')
-        abs_path_maxspd = path.join(
-            self.path_root, self.__instance_cpu,
-            'cpufreq', 'scaling_max_freq')
-        abs_path_minspd = path.join(
-            self.path_root, self.__instance_cpu,
-            'cpufreq', 'scaling_min_freq')
 
         # iterate over core supported freqs
         for idx, freq in enumerate(reversed(self.scaling_freqs)):
@@ -583,14 +585,14 @@ class CpuFreqCoreTest(CpuFreqTest):
             else:
                 # per cpufreq, set max_freq before min_freq
                 try:
-                    super()._write_cpu(abs_path_maxspd, freq)
+                    super()._write_cpu(self.path_max_freq, freq)
                 except Exception:
                     raise CpuFreqExec(
                         'ERROR: setting invalid frequency, %s'
                         '@scaling_max_freq!' % freq)
                 else:
                     try:
-                        super()._write_cpu(abs_path_minspd, freq)
+                        super()._write_cpu(self.path_min_freq, freq)
                     except Exception:
                         raise CpuFreqExec(
                             'ERROR: setting invalid frequency, %s'
