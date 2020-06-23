@@ -24,7 +24,7 @@ import sys
 import math
 import pprint
 import psutil
-# from pudb import set_trace; set_trace()
+# from pudb import set_trace
 
 
 class CpuFreqExec(Exception):
@@ -114,17 +114,6 @@ class CpuFreqTest:
                 self.path_min_freq).rstrip('\n')
 
             scaling_freqs = append_max_min()
-
-        # self.path_max_freq = path.join(
-        #     'cpu0', 'cpufreq',
-        #     'scaling_max_freq')
-        # self.path_min_freq = path.join(
-        #     'cpu0', 'cpufreq',
-        #     'scaling_min_freq')
-        # self.startup_max_freq = self._read_cpu(
-        #     self.path_max_freq).rstrip('\n')
-        # self.startup_min_freq = self._read_cpu(
-        #     self.path_min_freq).rstrip('\n')
 
         # cast freqs to int
         self.scaling_freqs = list(
@@ -292,21 +281,21 @@ class CpuFreqTest:
         """
         def set_max_min():
             present_cores = self._get_cores('present')
-
             for core in present_cores:
                 # reset max freq
-                print('* restoring startup max freq')
                 self._write_cpu(
-                    self.path_max_freq, self.startup_max_freq)
+                    self.path_max_freq,
+                    bytes(self.startup_max_freq.encode()))
                 # reset min freq
-                print('* restoring startup min freq')
                 self._write_cpu(
-                    self.path_min_freq, self.startup_min_freq)
+                    self.path_min_freq,
+                    bytes(self.startup_min_freq.encode()))
 
         self.enable_all_cpu()
         ('* restoring startup governor')
         self.set_governors(self.startup_governor)
         if self.scaling_driver != 'acpi-cpufreq':
+            print('* restoring max, min freq files')
             set_max_min()
 
     def run_test(self):
@@ -332,8 +321,9 @@ class CpuFreqTest:
         # reset state and cleanup
         print('##[resetting cpus]##')
         self.reset()
-        print('active threads:', threading.active_count())
-        print('dangling pids:', self.pid_list)
+        print('* active threads:', threading.active_count())
+        if self.pid_list:
+            print('* dangling pids:', self.pid_list)
         # process results
         print('\n##[results]##')
         print('-legend:')
