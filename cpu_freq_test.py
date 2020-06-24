@@ -30,10 +30,6 @@ import psutil
 class CpuFreqExec(Exception):
     """ Exception handling.
     """
-    def __init__(self, message):
-        self.message = message
-        # logging error
-        print(message)
 
 
 class CpuFreqTest:
@@ -151,8 +147,8 @@ class CpuFreqTest:
             with open(abs_path, 'rb') as f:
                 data = f.read().decode('utf-8')
         except OSError:
-            # change to logging.error
-            print('ERROR: unable to read file:', abs_path)
+            raise CpuFreqExec(
+                'ERROR: unable to read file:, %s' % abs_path)
         else:
             return data
 
@@ -167,8 +163,8 @@ class CpuFreqTest:
             with open(abs_path, 'wb') as f:
                 f.write(data)
         except OSError:
-            # change to logging.error
-            print('ERROR: unable to write file:', abs_path)
+            raise CpuFreqExec(
+                'ERROR: unable to write file:, %s' % abs_path)
         else:
             return data
 
@@ -456,14 +452,9 @@ class CpuFreqCoreTest(CpuFreqTest):
                 self.path_root, self.__instance_cpu,
                 'cpufreq', 'scaling_cur_freq')
             # may be gratitous; exec handling after call
-            try:
-                freqs = self._read_cpu(
-                    abs_path).rstrip('\n').split()[0]
-                return int(freqs)
-            except Exception:
-                raise CpuFreqExec(
-                    'ERROR: unable to query freq on core %i'
-                    % self.__instance_core)
+            freqs = self._read_cpu(
+                abs_path).rstrip('\n').split()[0]
+            return int(freqs)
 
         # sample current frequency
         self.__observed_freqs.append(
@@ -488,12 +479,10 @@ class CpuFreqCoreTest(CpuFreqTest):
                 freq_deq.append(elm)
                 yield freq_sum / n
 
-        def map_observed_freqs(idx):
+        def map_observed_freqs(target_freq):
             """ Align freq key/values and split result lists
             for grouping.
             """
-            scaling_freqs = list(reversed(self.scaling_freqs))
-            target_freq = scaling_freqs[idx]
             freq_avg = calc_freq_avg(self.__observed_freqs)
 
             # write avg freq to dict value with target freq as key
@@ -520,11 +509,11 @@ class CpuFreqCoreTest(CpuFreqTest):
             """ Method to provide feedback for debug/verbose
             logging.
             """
-            print('* testing: %s || target freq: %s || workload n: %i'
-                  % (self.__instance_cpu, freq.decode(),
+            print('* testing: %s || target freq: %i || workload n: %i'
+                  % (self.__instance_cpu, freq,
                      self.workload_n))
 
-        def scale_to_freq(freq, idx):
+        def scale_to_freq(freq):
             """ Proxy method to scale core to freq.
             """
             # setup async alarm to kill load gen
@@ -545,7 +534,7 @@ class CpuFreqCoreTest(CpuFreqTest):
             # stop workload loop
             self.__stop_loop = 0
             # map freq results to core
-            map_observed_freqs(idx)
+            map_observed_freqs(freq)
             # reset list for next frequency
             self.__observed_freqs = []
 
@@ -555,40 +544,21 @@ class CpuFreqCoreTest(CpuFreqTest):
 
         # iterate over core supported freqs
         for idx, freq in enumerate(reversed(self.scaling_freqs)):
-            freq = str(freq).encode()
+            freq_enc = str(freq).encode()
             # userspace governor required to write to ./scaling_setspeed
             if self.scaling_driver == 'acpi-cpufreq':
-                try:
-                    self._write_cpu(abs_path_setspd, freq)
-                except Exception:
-                    raise CpuFreqExec(
-                        'ERROR: setting invalid frequency, %s'
-                        '@scaling_setspeed!' % freq)
-                else:
-                    # begin scaling
-                    scale_to_freq(freq, idx)
-                    # pad observe_interval callback
-                    self.observe_interval = idx
+                self._write_cpu(abs_path_setspd, freq_enc)
+                # begin scaling
+                scale_to_freq(freq)
+                # pad observe_interval callback
+                self.observe_interval = idx
             else:
-                # per cpufreq, set max_freq before min_freq
-                try:
-                    self._write_cpu(self.path_max_freq, freq)
-                except Exception:
-                    raise CpuFreqExec(
-                        'ERROR: setting invalid frequency, %s'
-                        '@scaling_max_freq!' % freq)
-                else:
-                    try:
-                        self._write_cpu(self.path_min_freq, freq)
-                    except Exception:
-                        raise CpuFreqExec(
-                            'ERROR: setting invalid frequency, %s'
-                            '@scaling_min_freq!' % freq)
-                    else:
-                        # begin scaling
-                        scale_to_freq(freq, idx)
-                        # pad observe_interval callback
-                        self.observe_interval = idx
+                self._write_cpu(self.path_max_freq, freq_enc)
+                self._write_cpu(self.path_min_freq, freq_enc)
+                # begin scaling
+                scale_to_freq(freq)
+                # pad observe_interval callback
+                self.observe_interval = idx
 
 
 def main():
