@@ -4,9 +4,6 @@
 todo/verify:
 * implement argparse (almost complete)
 * change header to Canonical official syntax
-* expand exeception handling
-    - move and/or add to calling methods/fns
-    - ex: traceback custom exception -> oserror
 * make reset() callable with '-r' arg
 * verify list default arguments
 todo optional (nice to have):
