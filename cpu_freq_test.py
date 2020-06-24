@@ -56,7 +56,7 @@ class CpuFreqTest:
 
         # frequency sampling interval (thread timer)
         # should be lt scale_duration
-        self._observe_interval = .75
+        self._observe_interval = .7
 
         # factorial to calculate during core test, positive int
         self.workload_n = random.randint(34512, 67845)
@@ -225,10 +225,11 @@ class CpuFreqTest:
     def enable_all_cpu(self):
         """ Enable all present and offline cores.
         """
-        to_enable = (
-            set(self._get_cores('present'))
-            & set(self._get_cores('offline')))
-        print('* enabling the following cores:', to_enable)
+        present_cores = self._get_cores('present')
+        offline_cores = self._get_cores('offline')
+        to_enable = set(present_cores) & set(offline_cores)
+
+        print('  - enabling cores:', to_enable)
         for core in to_enable:
             abs_path = path.join(
                 ('cpu' + str(core)), 'online')
@@ -239,8 +240,8 @@ class CpuFreqTest:
         aka hyperthreading.
         """
         thread_siblings = []
-        online_cpus = self._get_cores('online')
-        for core in online_cpus:
+        online_cores = self._get_cores('online')
+        for core in online_cores:
             abs_path = path.join(
                 self.path_root, ('cpu' + str(core)),
                 'topology', 'thread_siblings_list')
@@ -248,8 +249,9 @@ class CpuFreqTest:
             thread_siblings += self._get_cores(abs_path)[1:]
         self._thread_siblings = thread_siblings
         # prefer set for binary &
-        to_disable = set(thread_siblings) & set(online_cpus)
+        to_disable = set(thread_siblings) & set(online_cores)
 
+        print('  - disabling cores:', to_disable)
         for core in to_disable:
             abs_path = path.join(
                 self.path_root, ('cpu' + str(core)),
@@ -260,7 +262,7 @@ class CpuFreqTest:
         """ Set/change cpu governor, perform on
         all cores.
         """
-        print('* setting governor:', governor)
+        print('  - setting governor:', governor)
         online_cores = self._get_cores('online')
         for core in online_cores:
             abs_path = path.join(
@@ -284,9 +286,14 @@ class CpuFreqTest:
                     self.path_min_freq,
                     bytes(self.startup_min_freq.encode()))
 
-        self.enable_all_cpu()
-        ('* restoring startup governor')
+        print('* restoring startup governor:')
+        # in case test ends prematurely from prior run
+        # and facilitate reset() called from args
+        if self.startup_governor == 'userspace':
+            self.startup_governor = 'ondemand'
         self.set_governors(self.startup_governor)
+        print('* enabling thread siblings/hyperthreading:')
+        self.enable_all_cpu()
         if self.scaling_driver != 'acpi-cpufreq':
             print('* restoring max, min freq files')
             set_max_min()
@@ -295,10 +302,10 @@ class CpuFreqTest:
         """ Execute cpufreq test, process results and return
         appropriate exit code.
         """
-        # scaling_freqs = list(self.scaling_freqs)
         # disable hyperthread cores
+        print('* disabling thread siblings/hyperthreading:')
         self.disable_thread_siblings()
-
+        print('* configuring cpu governors:')
         # userspace governor required for scaling_setspeed
         if self.scaling_driver == 'acpi-cpufreq':
             self.set_governors('userspace')
@@ -460,7 +467,7 @@ class CpuFreqCoreTest(CpuFreqTest):
         print(self.__observed_freqs)
 
     def scale_all_freq(self):
-        """ Primary class method to get running core freqs,
+        """ Primary method to scale full range of freqs,
         nested fns for encapsulation.
         """
         def calc_freq_avg(freqs, n=3):
@@ -539,7 +546,7 @@ class CpuFreqCoreTest(CpuFreqTest):
             self.path_root, self.__instance_cpu,
             'cpufreq', 'scaling_setspeed')
 
-        # iterate over core supported freqs
+        # iterate over core suported freqs
         for idx, freq in enumerate(self.scaling_freqs):
             freq_enc = str(freq).encode()
             # userspace governor required to write to ./scaling_setspeed
