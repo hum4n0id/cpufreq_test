@@ -106,11 +106,12 @@ class CpuFreqTest:
                 self.path_min_freq).rstrip('\n')
 
             scaling_freqs = append_max_min()
-
         # cast freqs to int
         self.scaling_freqs = list(
             map(
                 int, scaling_freqs))
+        # test freqs in ascending order
+        self.scaling_freqs.sort()
 
     @property
     def observe_interval(self):
@@ -294,7 +295,7 @@ class CpuFreqTest:
         """ Execute cpufreq test, process results and return
         appropriate exit code.
         """
-        # scaling_freqs = list(reversed(self.scaling_freqs))
+        # scaling_freqs = list(self.scaling_freqs)
         # disable hyperthread cores
         self.disable_thread_siblings()
 
@@ -539,7 +540,7 @@ class CpuFreqCoreTest(CpuFreqTest):
             'cpufreq', 'scaling_setspeed')
 
         # iterate over core supported freqs
-        for idx, freq in enumerate(reversed(self.scaling_freqs)):
+        for idx, freq in enumerate(self.scaling_freqs):
             freq_enc = str(freq).encode()
             # userspace governor required to write to ./scaling_setspeed
             if self.scaling_driver == 'acpi-cpufreq':
