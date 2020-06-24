@@ -19,6 +19,8 @@ import signal
 import sys
 import math
 import pprint
+import argparse
+import logging
 import psutil
 # from pudb import set_trace
 
@@ -140,7 +142,6 @@ class CpuFreqTest:
         """
         abs_path = path.join(
             self.path_root, fname)
-        # debug print('read: ', abs_path)
         # open abs_path in binary mode, read
         try:
             with open(abs_path, 'rb') as f:
@@ -156,7 +157,6 @@ class CpuFreqTest:
         """
         abs_path = path.join(
             self.path_root, fname)
-        # debug print('write: ', abs_path)
         # open abs_path in binary mode, write
         try:
             with open(abs_path, 'wb') as f:
@@ -231,7 +231,7 @@ class CpuFreqTest:
         offline_cores = self._get_cores('offline')
         to_enable = set(present_cores) & set(offline_cores)
 
-        print('  - enabling cores:', to_enable)
+        logging.info('  - enabling cores: %s' % to_enable)
         for core in to_enable:
             abs_path = path.join(
                 ('cpu' + str(core)), 'online')
@@ -253,7 +253,7 @@ class CpuFreqTest:
         # prefer set for binary &
         to_disable = set(thread_siblings) & set(online_cores)
 
-        print('  - disabling cores:', to_disable)
+        logging.info('  - disabling cores: %s' % to_disable)
         for core in to_disable:
             abs_path = path.join(
                 self.path_root, ('cpu' + str(core)),
@@ -264,7 +264,7 @@ class CpuFreqTest:
         """ Set/change cpu governor, perform on
         all cores.
         """
-        print('  - setting governor:', governor)
+        logging.info('  - setting governor: %s' % governor)
         online_cores = self._get_cores('online')
         for core in online_cores:
             abs_path = path.join(
@@ -288,16 +288,16 @@ class CpuFreqTest:
                     self.path_min_freq,
                     bytes(self.startup_min_freq.encode()))
 
-        print('* restoring startup governor:')
+        logging.info('* restoring startup governor:')
         # in case test ends prematurely from prior run
         # and facilitate reset() called from args
         if self.startup_governor == 'userspace':
             self.startup_governor = 'ondemand'
         self.set_governors(self.startup_governor)
-        print('* enabling thread siblings/hyperthreading:')
+        logging.info('* enabling thread siblings/hyperthreading:')
         self.enable_all_cpu()
         if self.scaling_driver != 'acpi-cpufreq':
-            print('* restoring max, min freq files')
+            logging.info('* restoring max, min freq files')
             set_max_min()
 
     def run_test(self):
@@ -305,9 +305,9 @@ class CpuFreqTest:
         appropriate exit code.
         """
         # disable hyperthread cores
-        print('* disabling thread siblings/hyperthreading:')
+        logging.info('* disabling thread siblings/hyperthreading:')
         self.disable_thread_siblings()
-        print('* configuring cpu governors:')
+        logging.info('* configuring cpu governors:')
         # userspace governor required for scaling_setspeed
         if self.scaling_driver == 'acpi-cpufreq':
             self.set_governors('userspace')
@@ -321,11 +321,11 @@ class CpuFreqTest:
         print('##[--------------]##\n')
 
         # reset state and cleanup
-        print('##[resetting cpus]##')
+        logging.info('##[resetting cpus]##')
         self.reset()
-        print('* active threads:', threading.active_count())
+        logging.info('* active threads: %i' % threading.active_count())
         if self.pid_list:
-            print('* dangling pids:', self.pid_list)
+            logging.info('* dangling pids: %r' % self.pid_list)
         # process results
         print('\n##[results]##')
         print('-legend:')
@@ -371,7 +371,7 @@ class CpuFreqTest:
         for proc in proc_list:
             # terminate core test process
             proc.join()
-            print('process collapsed, joined parent')
+            logging.info('process collapsed, joined parent')
 
     def run_child(self, output, affinity):
         """ Subclass instantiation & constructor for individual
@@ -381,7 +381,6 @@ class CpuFreqTest:
         proc = psutil.Process()
         # record pid for tracking
         self.pid_list.append(proc.pid)
-        # print('PIDs:', self.pid_list)
         # assign affinity to process
         proc.cpu_affinity(affinity)
         core = int(affinity[0])
@@ -466,7 +465,7 @@ class CpuFreqCoreTest(CpuFreqTest):
         self.__observed_freqs.append(
             get_cur_freq())
         # matrix mode
-        print(self.__observed_freqs)
+        logging.debug(self.__observed_freqs)
 
     def scale_all_freq(self):
         """ Primary method to scale full range of freqs,
@@ -515,9 +514,8 @@ class CpuFreqCoreTest(CpuFreqTest):
             """ Method to provide feedback for debug/verbose
             logging.
             """
-            print('* testing: %s || target freq: %i || workload n: %i'
-                  % (self.__instance_cpu, freq,
-                     self.workload_n))
+            logging.info('* testing: %s || target freq: %i || workload n: %i'
+                         % (self.__instance_cpu, freq, self.workload_n))
 
         def scale_to_freq(freq):
             """ Proxy method to scale core to freq.
@@ -567,7 +565,37 @@ class CpuFreqCoreTest(CpuFreqTest):
                 self.observe_interval = idx
 
 
+def log_args():
+    parser = argparse.ArgumentParser(
+        prog='cpu_freq_test.py')
+    # levels: CRITICAL, ERROR, WARNING, INFO, DEBUG, NOTSET
+    # lvlnum: 50      , 40   , 30     , 20  , 10   , 0
+    parser.add_argument(
+        '-d', '--debug',
+        dest='log_level',
+        action='store_const',
+        const=logging.DEBUG,
+        default=logging.INFO,
+        help='debug/verbose output (stdout/stderr)')
+    parser.add_argument(
+        '-q', '--quiet',
+        dest='log_level',
+        action='store_const',
+        const=logging.WARNING,
+        help='suppress output')
+    args = parser.parse_args()
+    logger = logging.getLogger()
+    # set base logging level to pipe StreamHandler() thru
+    logger.setLevel(logging.NOTSET)
+    console_handler = logging.StreamHandler()
+    # set logging level
+    console_handler.setLevel(args.log_level)
+    # start logging
+    logger.addHandler(console_handler)
+
+
 def main():
+    log_args()
     cpu_freq_test = CpuFreqTest()
     return(cpu_freq_test.run_test())
 
