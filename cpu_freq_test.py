@@ -2,10 +2,9 @@
 
 """
 todo/verify:
-* implement argparse (almost complete)
+* implement argparse
 * change header to Canonical official syntax
 * make reset() callable with '-r' arg
-* verify list default arguments
 todo optional (nice to have):
 * check if workload needs to scale with processor power
 """
