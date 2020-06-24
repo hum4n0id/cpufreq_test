@@ -56,7 +56,7 @@ class CpuFreqTest:
 
         # frequency sampling interval (thread timer)
         # should be lt scale_duration
-        self._observe_interval = .5
+        self._observe_interval = .75
 
         # factorial to calculate during core test, positive int
         self.workload_n = random.randint(34512, 67845)
