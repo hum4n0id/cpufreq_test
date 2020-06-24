@@ -115,6 +115,8 @@ class CpuFreqTest:
 
     @property
     def observe_interval(self):
+        """ ObserveFreq callback interval, expose for subclass.
+        """
         return self._observe_interval
 
     @observe_interval.setter
@@ -417,13 +419,13 @@ class CpuFreqCoreTest(CpuFreqTest):
 
     @property
     def observed_freqs(self):
-        """ Expose core's sampled freqs.
+        """ Expose sampled freqs for core.
         """
         return self.__observed_freqs
 
     @property
     def observed_freqs_rdict(self):
-        """ Expose raw freq samples.
+        """ Expose raw freq samples, mapped to core.
         """
         return self.__observed_rfreqs
 
