@@ -104,8 +104,8 @@ class CpuFreqTest:
                 self.path_max_freq).rstrip('\n')
             self.startup_min_freq = self._read_cpu(
                 self.path_min_freq).rstrip('\n')
-
             scaling_freqs = append_max_min()
+
         # cast freqs to int
         self.scaling_freqs = list(
             map(
