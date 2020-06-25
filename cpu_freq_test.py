@@ -565,7 +565,7 @@ class CpuFreqCoreTest(CpuFreqTest):
                 self.observe_interval = idx
 
 
-def log_args():
+def parse_args_logging():
     parser = argparse.ArgumentParser(
         prog='cpu_freq_test.py')
     # levels: CRITICAL, ERROR, WARNING, INFO, DEBUG, NOTSET
@@ -583,19 +583,23 @@ def log_args():
         action='store_const',
         const=logging.WARNING,
         help='suppress output')
+    # parser.add_argument(
+    #     '-r', '--reset',
+    #     action='store_true',
+    #     help='reset governor and cpu settings')
     args = parser.parse_args()
-    logger = logging.getLogger()
+    base_logging = logging.getLogger()
     # set base logging level to pipe StreamHandler() thru
-    logger.setLevel(logging.NOTSET)
-    console_handler = logging.StreamHandler()
+    base_logging.setLevel(logging.NOTSET)
+    logging_handler = logging.StreamHandler()
     # set logging level
-    console_handler.setLevel(args.log_level)
+    logging_handler.setLevel(args.log_level)
     # start logging
-    logger.addHandler(console_handler)
+    base_logging.addHandler(logging_handler)
 
 
 def main():
-    log_args()
+    parse_args_logging()
     cpu_freq_test = CpuFreqTest()
     return(cpu_freq_test.run_test())
 
