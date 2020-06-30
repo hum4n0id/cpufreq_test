@@ -49,8 +49,6 @@ class CpuFreqTest():
     # ex: max = 110, min = 90 is 20% passing tolerance
     max_freq_pct = 110
     min_freq_pct = 90
-    # factorial to calculate during core_test, positive int
-    workload_n = random.randint(34512, 67845)
     # time to wait for child join to complete
     proc_join_timeout = 5
 
@@ -613,22 +611,25 @@ class CpuFreqCoreTest(CpuFreqTest):
             self.args = args
             self.__stop_loop = 1
 
-        def execute_workload(n):
+        def execute_workload(workload_n):
             """ Perform maths to load core.
             """
             while not self.__stop_loop:
-                math.factorial(n)
+                math.factorial(workload_n)
 
-        def log_freq_scaling(freq):
+        def log_freq_scaling(freq, workload_n):
             """ Method to provide feedback for debug/verbose
             logging.
             """
             logging.info('* testing: %s || target freq: %i || workload n: %i'
-                         % (self.__instance_cpu, freq, CpuFreqTest.workload_n))
+                         % (self.__instance_cpu, freq, workload_n))
 
         def scale_to_freq(freq):
             """ Proxy fn to scale core to freq.
             """
+            # gen randint for workload factorial calcs
+            # helps salt concurrent workloads
+            workload_n = random.randint(34512, 37845)
             # setup async alarm to kill load gen
             signal.signal(signal.SIGALRM, handle_alarm)
             # time to gen load
@@ -638,10 +639,10 @@ class CpuFreqCoreTest(CpuFreqTest):
                 interval=CpuFreqTest.observe_interval,
                 callback=self._observe_freq_cb)
             # logging.info messages
-            log_freq_scaling(freq)
+            log_freq_scaling(freq, workload_n)
             # pass random int to workload and load core
             execute_workload(
-                CpuFreqTest.workload_n)
+                workload_n)
             # stop workload loop
             self.__stop_loop = 0
             # map freq results to core
