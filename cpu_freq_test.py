@@ -27,6 +27,10 @@ import psutil
 class CpuFreqExec(Exception):
     """ Exception handling (stderr).
     """
+    def __init__(self, message):
+        super().__init__()
+        logging.error(message)
+        sys.stderr.write(message)
 
 
 class CpuFreqTest():
@@ -151,7 +155,7 @@ class CpuFreqTest():
         online_cores = self._get_cores('online')
         for core in online_cores:
             fpath = path.join(
-                'cpu%i' % core,
+                'cpu%i', core,
                 'cpufreq', parameter)
             data[int(core)] = self._read_cpu(
                 fpath).rstrip('\n').split()[0]
@@ -224,7 +228,7 @@ class CpuFreqTest():
             online_cores = self._get_cores('online')
             for core in online_cores:
                 fpath = path.join(
-                    'cpu%i' % core,
+                    'cpu%i', core,
                     'topology', 'thread_siblings_list')
                 # second core is sibling
                 thread_siblings += self._get_cores(fpath)[1:]
@@ -234,10 +238,10 @@ class CpuFreqTest():
             return to_disable
 
         to_disable = get_thread_siblings()
-        logging.info('  - disabling cores: %s' % to_disable)
+        logging.info('  - disabling cores: %s', to_disable)
         for core in to_disable:
             fpath = path.join(
-                'cpu%i' % core,
+                'cpu%i', core,
                 'online')
             self._write_cpu(fpath, b'0')
 
@@ -250,11 +254,11 @@ class CpuFreqTest():
         """ Set/change cpu governor, perform on
         all cores.
         """
-        logging.info('  - setting governor: %s' % governor)
+        logging.info('  - setting governor: %s', governor)
         online_cores = self._get_cores('online')
         for core in online_cores:
             fpath = path.join(
-                'cpu%i' % core,
+                'cpu%i', core,
                 'cpufreq', 'scaling_governor')
             self._write_cpu(fpath, governor.encode())
 
@@ -270,7 +274,7 @@ class CpuFreqTest():
             ipst_status = self._write_cpu(
                 self.path_ipst_status, bytes(
                     self.startup_ipst_status.encode()))
-            logging.info('  - setting mode: %s' % ipst_status.decode())
+            logging.info('  - setting mode: %s', ipst_status.decode())
 
         def enable_off_cores():
             """ Enable all present and offline cores.
@@ -284,10 +288,10 @@ class CpuFreqTest():
             else:
                 to_enable = set(present_cores) & set(offline_cores)
 
-            logging.info('  - enabling cores: %s' % to_enable)
+            logging.info('  - enabling cores: %s', to_enable)
             for core in to_enable:
                 fpath = path.join(
-                    'cpu%i' % core,
+                    'cpu%i', core,
                     'online')
                 self._write_cpu(fpath, b'1')
 
@@ -295,10 +299,10 @@ class CpuFreqTest():
             present_cores = self._get_cores('present')
             for core in present_cores:
                 path_max = path.join(
-                    'cpu%i' % core,
+                    'cpu%i', core,
                     'cpufreq', 'scaling_max_freq')
                 path_min = path.join(
-                    'cpu%i' % core,
+                    'cpu%i', core,
                     'cpufreq', 'scaling_min_freq')
                 # reset max freq
                 self._write_cpu(
@@ -360,7 +364,7 @@ class CpuFreqTest():
             cur_ipst_status = self._read_cpu(
                 self.path_ipst_status).rstrip('\n')
             logging.info(
-                '  - p_state mode: %s' % cur_ipst_status)
+                '  - p_state mode: %s', cur_ipst_status)
 
         logging.info('* configuring cpu governors:')
         # userspace governor required for scaling_setspeed
@@ -385,8 +389,8 @@ class CpuFreqTest():
             logging.info('* cleaning up dangling pids:')
             for proc in self.__proc_list:
                 proc.terminate()
-                logging.info('  - PID %i terminated' % proc.pid)
-        logging.info('* active threads: %i' % threading.active_count())
+                logging.info('  - PID %i terminated', proc.pid)
+        logging.info('* active threads: %i', threading.active_count())
 
         # process results
         print('\n##[results]##')
@@ -449,7 +453,7 @@ class CpuFreqTest():
             pid_list.append(proc.pid)
 
         logging.debug('* spawned PIDs performing core_testing:')
-        logging.debug('  - %r' % pid_list)
+        logging.debug('  - %r', pid_list)
 
         # get queued core_test results
         for core in online_cores:
@@ -464,7 +468,7 @@ class CpuFreqTest():
             # join core_test processes
             proc.join(CpuFreqTest.proc_join_timeout)
             # if not proc.is_alive():
-            logging.debug('* PID %s joined parent' % proc.pid)
+            logging.debug('* PID %s joined parent', proc.pid)
             try:
                 proc_list.remove(proc)
             # skip if not found
@@ -491,6 +495,7 @@ class CpuFreqCoreTest(CpuFreqTest):
             self.interval = interval
             self.callback = callback
             self.next_call = time.time()
+            self.is_running = False
 
         def observe(self):
             # startup sequence
@@ -610,8 +615,8 @@ class CpuFreqCoreTest(CpuFreqTest):
             """ Method to provide feedback for debug/verbose
             logging.
             """
-            logging.info('* testing: %s || target freq: %i || workload n: %i'
-                         % (self.__instance_cpu, freq, CpuFreqTest.workload_n))
+            logging.info('* testing: %s || target freq: %i || workload n: %i',
+                         (self.__instance_cpu, freq, CpuFreqTest.workload_n))
 
         def scale_to_freq(freq):
             """ Proxy fn to scale core to freq.
