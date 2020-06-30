@@ -29,7 +29,7 @@ class CpuFreqExec(Exception):
     """
     def __init__(self, message):
         super().__init__(message)
-        logging.error(message)
+        logging.error(message, exc_info=True)
 
 
 class CpuFreqTest():
@@ -495,17 +495,22 @@ class CpuFreqCoreTest(CpuFreqTest):
             self.callback = callback
             self.next_call = time.time()
             self.is_running = False
+            # run start() on instantiation
+            self.start()
 
         def observe(self):
-            # startup sequence
             self.is_running = False
+            # event loop start
             self.start()
             self.callback()
 
         def start(self):
+            # prevent race condition
             if not self.is_running:
                 self.next_call += self.interval
+                # counter drift
                 interval_delta = self.next_call - time.time()
+                # call observe() every interval_delta and loop
                 self.thread_timer = threading.Timer(
                     interval_delta, self.observe)
                 # cleanup thread on exit
@@ -514,8 +519,9 @@ class CpuFreqCoreTest(CpuFreqTest):
                 self.is_running = True
 
         def stop(self):
-            # shutdown sequence
-            self.thread_timer.cancel()
+            if self.thread_timer:
+                # event loop end
+                self.thread_timer.cancel()
             self.is_running = False
 
     def __init__(self, core):
@@ -624,14 +630,12 @@ class CpuFreqCoreTest(CpuFreqTest):
             signal.signal(signal.SIGALRM, handle_alarm)
             # time to gen load
             signal.alarm(CpuFreqTest.scale_duration)
-            # instantiate ObserveFreq for data sampling
+            # instantiate ObserveFreq and start data sampling
             observe_freq = self.ObserveFreq(
                 interval=CpuFreqTest.observe_interval,
                 callback=self._observe_freq_cb)
             # debug logging
             log_freq_scaling(freq)
-            # start data sampling
-            observe_freq.observe()
             # pass random int for load generation
             execute_workload(
                 CpuFreqTest.workload_n)
@@ -669,6 +673,22 @@ class CpuFreqCoreTest(CpuFreqTest):
 
 
 def parse_args_logging():
+    def init_logging(args):
+        # stdout for argparse logging lvls
+        stdout_handler = logging.StreamHandler(sys.stdout)
+        stdout_handler.setLevel(args.log_level)
+        # stderr for exceptions
+        stderr_handler = logging.StreamHandler(sys.stderr)
+        stderr_handler.setLevel(logging.ERROR)
+
+        # setup base/top-lvl logger
+        base_logging = logging.getLogger()
+        # set base logging level to pipe StreamHandler() thru
+        base_logging.setLevel(logging.NOTSET)
+        # start logging
+        base_logging.addHandler(stdout_handler)
+        base_logging.addHandler(stderr_handler)
+
     parser = argparse.ArgumentParser()
     # levels: CRITICAL, ERROR, WARNING, INFO, DEBUG, NOTSET
     # lvlnum: 50      , 40   , 30     , 20  , 10   , 0
@@ -698,18 +718,7 @@ def parse_args_logging():
         action='store_true',
         help='get active governor (global/all cpu)')
     args = parser.parse_args()
-    base_logging = logging.getLogger()
-    # set base logging level to pipe StreamHandler() thru
-    base_logging.setLevel(logging.NOTSET)
-    # stdout for argparse logging lvls, stderr for exceptions
-    logging_handler_stdout = logging.StreamHandler(sys.stdout)
-    logging_handler_stderr = logging.StreamHandler(sys.stderr)
-    # set logging level
-    logging_handler_stdout.setLevel(args.log_level)
-    logging_handler_stderr.setLevel(logging.ERROR)
-    # start logging
-    base_logging.addHandler(logging_handler_stdout)
-    base_logging.addHandler(logging_handler_stderr)
+    init_logging(args)
     return args
 
 
