@@ -21,7 +21,6 @@ import pprint
 import argparse
 import logging
 import psutil
-# from pudb import set_trace
 
 
 class CpuFreqExec(Exception):
@@ -229,7 +228,6 @@ class CpuFreqTest():
                     'topology', 'thread_siblings_list')
                 # second core is sibling
                 thread_siblings += self._get_cores(fpath)[1:]
-            self._thread_siblings = thread_siblings
             # prefer set for binary &
             to_disable = set(thread_siblings) & set(online_cores)
             return to_disable
@@ -621,8 +619,8 @@ class CpuFreqCoreTest(CpuFreqTest):
             """ Method to provide feedback for debug/verbose
             logging.
             """
-            logging.info('* testing: %s || target freq: %i || workload n: %i'
-                         % (self.__instance_cpu, freq, workload_n))
+            logging.info('* testing: %s || target freq: %i || workload n: %i',
+                         self.__instance_cpu, freq, workload_n)
 
         def scale_to_freq(freq):
             """ Proxy fn to scale core to freq.
