@@ -506,9 +506,9 @@ class CpuFreqCoreTest(CpuFreqTest):
         def start(self):
             if not self.is_running:
                 self.next_call += self.interval
-                time_delta = self.next_call - time.time()
+                call_delta = self.next_call - time.time()
                 self.thread_timer = threading.Timer(
-                    time_delta, self.observe)
+                    call_delta, self.observe)
                 # cleanup thread on exit
                 self.thread_timer.daemon = True
                 self.thread_timer.start()
