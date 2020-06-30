@@ -478,24 +478,6 @@ class CpuFreqCoreTest(CpuFreqTest):
     """ Subclass to facilitate concurrent frequency scaling.
     Every physical core will self-test freq. scaling capabilities at once.
     """
-    def __init__(self, core):
-        super().__init__()
-        # mangle all instance attributes
-        self.__instance_core = int(core)  # core under test
-        self.__instance_cpu = 'cpu' + str(core)  # str cpu ref
-        self.__stop_loop = 0  # signal.alarm semaphore
-        self.__observed_freqs = []  # recorded freqs
-        self.__observed_freqs_dict = {}  # core: recorded freqs
-        self.__observed_freqs_rdict = {}  # raw recorded freqs (float)
-
-    def __call__(self):
-        """ Have subclass return dict '{core: avg_freq}'
-        when called.
-        """
-        freq_map = (
-            {self.__instance_core: self.__observed_freqs_dict})
-        return freq_map
-
     class ObserveFreq:
         """ Class for instantiating observation thread.
         Non-blocking and locked to system time to avoid
@@ -532,6 +514,24 @@ class CpuFreqCoreTest(CpuFreqTest):
             self.thread_timer.cancel()
             self.is_running = False
 
+    def __init__(self, core):
+        super().__init__()
+        # mangle all instance attributes
+        self.__instance_core = int(core)  # core under test
+        self.__instance_cpu = 'cpu' + str(core)  # str cpu ref
+        self.__stop_loop = 0  # signal.alarm semaphore
+        self.__observed_freqs = []  # recorded freqs
+        self.__observed_freqs_dict = {}  # core: recorded freqs
+        self.__observed_freqs_rdict = {}  # raw recorded freqs (float)
+
+    def __call__(self):
+        """ Have subclass return dict '{core: avg_freq}'
+        when called.
+        """
+        freq_map = (
+            {self.__instance_core: self.__observed_freqs_dict})
+        return freq_map
+
     @property
     def observed_freqs(self):
         """ Expose sampled freqs for core.
@@ -544,7 +544,7 @@ class CpuFreqCoreTest(CpuFreqTest):
         """
         return self.__observed_rfreqs
 
-    def observe_freq_cb(self):
+    def _observe_freq_cb(self):
         """ Callback method to sample frequency.
         """
         def get_cur_freq():
@@ -613,7 +613,7 @@ class CpuFreqCoreTest(CpuFreqTest):
                          % (self.__instance_cpu, freq, CpuFreqTest.workload_n))
 
         def scale_to_freq(freq):
-            """ Proxy method to scale core to freq.
+            """ Proxy fn to scale core to freq.
             """
             # setup async alarm to kill load gen
             signal.signal(signal.SIGALRM, handle_alarm)
@@ -622,7 +622,7 @@ class CpuFreqCoreTest(CpuFreqTest):
             # instantiate ObserveFreq for data sampling
             observe_freq = self.ObserveFreq(
                 interval=CpuFreqTest.observe_interval,
-                callback=self.observe_freq_cb)
+                callback=self._observe_freq_cb)
             # debug logging
             log_freq_scaling(freq)
             # start data sampling
@@ -636,6 +636,7 @@ class CpuFreqCoreTest(CpuFreqTest):
             map_observed_freqs(freq)
             # reset list for next frequency
             self.__observed_freqs = []
+            # stop sampling
             observe_freq.stop()
 
         # set paths relative to core
@@ -646,8 +647,8 @@ class CpuFreqCoreTest(CpuFreqTest):
             self.__instance_cpu, 'cpufreq',
             'scaling_max_freq')
 
-        # iterate over core suported freqs
-        for idx, freq in enumerate(self.scaling_freqs):
+        # iterate over suported freqs
+        for freq in self.scaling_freqs:
             freq_enc = str(freq).encode()
             # userspace governor required to write to scaling_setspeed
             if 'acpi-cpufreq' in self.scaling_driver:
@@ -716,7 +717,7 @@ def main():
         # cpu_freq_test.set_governors(args=governor)
         print(cpu_freq_test.get_governors())
     else:
-        return(cpu_freq_test.execute_test())
+        return cpu_freq_test.execute_test()
 
 
 if __name__ == '__main__':
