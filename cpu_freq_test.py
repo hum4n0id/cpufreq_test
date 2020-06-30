@@ -487,42 +487,45 @@ class CpuFreqCoreTest(CpuFreqTest):
         exponentional drift as frequency scaling occurs.
         """
         # dev note: encapsulating this functionality in
-        # an core_test nested class was cleanest way to
+        # a core_test nested class was cleanest way to
         # sample data while not blocking testing threads.
         def __init__(self, interval, callback):
             self.thread_timer = None
             self.interval = interval
             self.callback = callback
             self.next_call = time.time()
-            self.is_running = False
-            # run start() on instantiation
-            self.start()
+            self.timer_running = False
+            # execute first loop on instantiation
+            self.loop()
 
         def observe(self):
-            self.is_running = False
-            # event loop start
-            self.start()
+            # thread timer complete
+            self.timer_running = False
+            # not subclassed, so callback to outer scope
             self.callback()
+            # start another cycle
+            self.loop()
 
-        def start(self):
-            # prevent race condition
-            if not self.is_running:
+        def loop(self):
+            # don't start if running,
+            # prevents race condition
+            if not self.timer_running:
+                # create time delta for consistent timing
                 self.next_call += self.interval
-                # counter drift
                 interval_delta = self.next_call - time.time()
                 # call observe() every interval_delta and loop
                 self.thread_timer = threading.Timer(
                     interval_delta, self.observe)
-                # cleanup thread on exit
+                # cleanup timer threads on exit
                 self.thread_timer.daemon = True
                 self.thread_timer.start()
-                self.is_running = True
+                self.timer_running = True
 
         def stop(self):
             if self.thread_timer:
                 # event loop end
                 self.thread_timer.cancel()
-            self.is_running = False
+            self.timer_running = False
 
     def __init__(self, core):
         super().__init__()
@@ -634,9 +637,9 @@ class CpuFreqCoreTest(CpuFreqTest):
             observe_freq = self.ObserveFreq(
                 interval=CpuFreqTest.observe_interval,
                 callback=self._observe_freq_cb)
-            # debug logging
+            # logging.info messages
             log_freq_scaling(freq)
-            # pass random int for load generation
+            # pass random int to workload and load core
             execute_workload(
                 CpuFreqTest.workload_n)
             # stop workload loop
