@@ -276,7 +276,7 @@ class CpuFreqTest():
             """ Enable all present and offline cores.
             """
             present_cores = self._get_cores('present')
-            # duck typed for -r flag invokation
+            # duck-typed for -r flag invokation
             try:
                 offline_cores = self._get_cores('offline')
             except ValueError:
@@ -483,9 +483,9 @@ class CpuFreqCoreTest(CpuFreqTest):
         Non-blocking and locked to system time to avoid
         exponentional drift as frequency scaling occurs.
         """
-        # dev note: encapsulating this functionality in a
-        # core_test nested subclass was cleanest way to sample data
-        # while not blocking testing threads.
+        # dev note: encapsulating this functionality in
+        # an core_test nested class was cleanest way to
+        # sample data while not blocking testing threads.
         def __init__(self, interval, callback):
             self.thread_timer = None
             self.interval = interval
@@ -542,7 +542,7 @@ class CpuFreqCoreTest(CpuFreqTest):
     def observed_freqs_rdict(self):
         """ Expose raw freq samples, mapped to core.
         """
-        return self.__observed_rfreqs
+        return self.__observed_freqs_rdict
 
     def _observe_freq_cb(self):
         """ Callback method to sample frequency.
@@ -566,18 +566,18 @@ class CpuFreqCoreTest(CpuFreqTest):
         """ Primary method to scale full range of freqs,
         nested fns for encapsulation.
         """
-        def calc_freq_avg(freqs, n=3):
+        def calc_freq_avg(freqs, n_smpls=3):
             """ Calculate moving average of observed_freqs.
             """
             freq_itr = iter(freqs)
             freq_deq = collections.deque(
-                itertools.islice(freq_itr, n - 1))
+                itertools.islice(freq_itr, n_smpls - 1))
             freq_deq.appendleft(0)
             freq_sum = sum(freq_deq)
             for elm in freq_itr:
                 freq_sum += elm - freq_deq.popleft()
                 freq_deq.append(elm)
-                yield freq_sum / n
+                yield freq_sum / n_smpls
 
         def map_observed_freqs(target_freq):
             """ Align freq key/values and split result lists
@@ -597,6 +597,7 @@ class CpuFreqCoreTest(CpuFreqTest):
             """ Alarm trigger callback,
             unload core
             """
+            self.args = args
             self.__stop_loop = 1
 
         def execute_workload(n):
@@ -691,7 +692,7 @@ def parse_args_logging():
     parser_mutex_grp.add_argument(
         '-g', '--gov',
         action='store_true',
-        help='get/set specified governor (global/all cpu)')
+        help='get active governor (global/all cpu)')
     args = parser.parse_args()
     base_logging = logging.getLogger()
     # set base logging level to pipe StreamHandler() thru
@@ -713,8 +714,6 @@ def main():
         cpu_freq_test.reset()
         print('reset cpufreq sysfs')
     elif args.gov:
-        # governor = args.gov
-        # cpu_freq_test.set_governors(args=governor)
         print(cpu_freq_test.get_governors())
     else:
         return cpu_freq_test.execute_test()
