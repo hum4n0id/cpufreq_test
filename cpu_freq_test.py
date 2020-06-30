@@ -710,7 +710,7 @@ def parse_args_logging():
 
 def main():
     args = parse_args_logging()
-    # instantiate CpuFreqTest as cpu_freq_test (singleton)
+    # instantiate CpuFreqTest as cpu_freq_test
     cpu_freq_test = CpuFreqTest()
     if args.reset:
         cpu_freq_test.reset()
