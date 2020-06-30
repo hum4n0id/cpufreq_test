@@ -556,11 +556,7 @@ class CpuFreqCoreTest(CpuFreqTest):
             freqs = self._read_cpu(
                 fpath).rstrip('\n').split()[0]
             return int(freqs)
-        # cur_freq = self._get_cpufreq_param(
-        #     'scaling_cur_freq')
-        # # sample current frequency
-        # self.__observed_freqs.append(
-        #     int(cur_freq))
+
         self.__observed_freqs.append(
             get_cur_freq())
         # matrix mode
