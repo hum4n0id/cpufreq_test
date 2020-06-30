@@ -28,9 +28,8 @@ class CpuFreqExec(Exception):
     """ Exception handling (stderr).
     """
     def __init__(self, message):
-        super().__init__()
+        super().__init__(message)
         logging.error(message)
-        sys.stderr.write(message)
 
 
 class CpuFreqTest():
@@ -703,11 +702,14 @@ def parse_args_logging():
     # set base logging level to pipe StreamHandler() thru
     base_logging.setLevel(logging.NOTSET)
     # stdout for argparse logging lvls, stderr for exceptions
-    logging_handler = logging.StreamHandler(sys.stdout)
+    logging_handler_stdout = logging.StreamHandler(sys.stdout)
+    logging_handler_stderr = logging.StreamHandler(sys.stderr)
     # set logging level
-    logging_handler.setLevel(args.log_level)
+    logging_handler_stdout.setLevel(args.log_level)
+    logging_handler_stderr.setLevel(logging.ERROR)
     # start logging
-    base_logging.addHandler(logging_handler)
+    base_logging.addHandler(logging_handler_stdout)
+    base_logging.addHandler(logging_handler_stderr)
     return args
 
 
