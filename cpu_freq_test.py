@@ -155,7 +155,7 @@ class CpuFreqTest():
         online_cores = self._get_cores('online')
         for core in online_cores:
             fpath = path.join(
-                'cpu%i', core,
+                'cpu%i' % core,
                 'cpufreq', parameter)
             data[int(core)] = self._read_cpu(
                 fpath).rstrip('\n').split()[0]
@@ -228,7 +228,7 @@ class CpuFreqTest():
             online_cores = self._get_cores('online')
             for core in online_cores:
                 fpath = path.join(
-                    'cpu%i', core,
+                    'cpu%i' % core,
                     'topology', 'thread_siblings_list')
                 # second core is sibling
                 thread_siblings += self._get_cores(fpath)[1:]
@@ -241,7 +241,7 @@ class CpuFreqTest():
         logging.info('  - disabling cores: %s', to_disable)
         for core in to_disable:
             fpath = path.join(
-                'cpu%i', core,
+                'cpu%i' % core,
                 'online')
             self._write_cpu(fpath, b'0')
 
@@ -258,7 +258,7 @@ class CpuFreqTest():
         online_cores = self._get_cores('online')
         for core in online_cores:
             fpath = path.join(
-                'cpu%i', core,
+                'cpu%i' % core,
                 'cpufreq', 'scaling_governor')
             self._write_cpu(fpath, governor.encode())
 
@@ -291,7 +291,7 @@ class CpuFreqTest():
             logging.info('  - enabling cores: %s', to_enable)
             for core in to_enable:
                 fpath = path.join(
-                    'cpu%i', core,
+                    'cpu%i' % core,
                     'online')
                 self._write_cpu(fpath, b'1')
 
@@ -299,10 +299,10 @@ class CpuFreqTest():
             present_cores = self._get_cores('present')
             for core in present_cores:
                 path_max = path.join(
-                    'cpu%i', core,
+                    'cpu%i' % core,
                     'cpufreq', 'scaling_max_freq')
                 path_min = path.join(
-                    'cpu%i', core,
+                    'cpu%i' % core,
                     'cpufreq', 'scaling_min_freq')
                 # reset max freq
                 self._write_cpu(
@@ -506,9 +506,9 @@ class CpuFreqCoreTest(CpuFreqTest):
         def start(self):
             if not self.is_running:
                 self.next_call += self.interval
-                call_delta = self.next_call - time.time()
+                time_delta = self.next_call - time.time()
                 self.thread_timer = threading.Timer(
-                    call_delta, self.observe)
+                    time_delta, self.observe)
                 # cleanup thread on exit
                 self.thread_timer.daemon = True
                 self.thread_timer.start()
@@ -615,8 +615,8 @@ class CpuFreqCoreTest(CpuFreqTest):
             """ Method to provide feedback for debug/verbose
             logging.
             """
-            logging.info('* testing: %s || target freq: %i || workload n: %i',
-                         (self.__instance_cpu, freq, CpuFreqTest.workload_n))
+            logging.info('* testing: %s || target freq: %i || workload n: %i'
+                         % (self.__instance_cpu, freq, CpuFreqTest.workload_n))
 
         def scale_to_freq(freq):
             """ Proxy fn to scale core to freq.
