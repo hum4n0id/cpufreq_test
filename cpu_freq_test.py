@@ -36,7 +36,7 @@ class CpuFreqTest():
     """ Test cpufreq scaling capabilities.
     """
     # class attributes / statics
-    path_root = '/sys/devices/system/cpu'
+
     # time to stay at frequency under load (sec)
     # more time = more resolution
     # should be gt observe_interval
@@ -65,6 +65,7 @@ class CpuFreqTest():
                 path_min).rstrip('\n'))
             return scaling_freqs
 
+        self.path_root = '/sys/devices/system/cpu'
         self.__fail_count = 0
         # attributes common to all cores
         self.__proc_list = []  # pids for core affinity assignment
@@ -119,7 +120,7 @@ class CpuFreqTest():
         """ Read sysfs/cpufreq file.
         """
         abs_path = path.join(
-            CpuFreqTest.path_root, fpath)
+            self.path_root, fpath)
         # open abs_path in binary mode, read
         try:
             with open(abs_path, 'rb') as _:
@@ -157,7 +158,7 @@ class CpuFreqTest():
             data_utf = data
 
         abs_path = path.join(
-            CpuFreqTest.path_root, fpath)
+            self.path_root, fpath)
         # write utf bytes to cpufreq sysfs
         try:
             with open(abs_path, 'wb') as _:
@@ -202,8 +203,6 @@ class CpuFreqTest():
                     core_list += [int(first_last[0])]
             return core_list
 
-        # abs_path = path.join(
-        #     CpuFreqTest.path_root, fpath)
         core_rng = self._read_cpu(
             fpath).strip('\n').strip()
         core_list = list_core_rng(core_rng)
@@ -636,7 +635,8 @@ class CpuFreqCoreTest(CpuFreqTest):
             """ Alarm trigger callback,
             unload core
             """
-            self.args = args
+            # args unused; *args present for signal callback
+            del args
             self.__stop_loop = 1
 
         def execute_workload(workload_n):
