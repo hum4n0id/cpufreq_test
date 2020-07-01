@@ -265,6 +265,8 @@ class CpuFreqTest():
             self._write_cpu(fpath, 0)
 
     def get_governors(self):
+        """ Return active governors on all cores.
+        """
         governors = self._get_cpufreq_param(
             'scaling_governor')
         return governors
