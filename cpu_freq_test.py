@@ -137,7 +137,7 @@ class CpuFreqTest():
         # if not isinstance(fname, bytes):
         # open abs_path in binary mode, write
 
-        def return_utf():
+        def return_bytes_utf():
             """ Universal conversion to utf,
             for sysfs writes.
             """
@@ -155,7 +155,7 @@ class CpuFreqTest():
             return data_utf
 
         if not isinstance(data, bytes):
-            data_utf = return_utf()
+            data_utf = return_bytes_utf()
         else:
             data_utf = data
 
