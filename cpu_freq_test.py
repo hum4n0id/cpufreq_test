@@ -142,11 +142,14 @@ class CpuFreqTest():
             for sysfs writes.
             """
             try:
+                # str type
                 data_outer = data.encode()
             except (AttributeError, TypeError):
                 try:
+                    # int, float type
                     data_inner = str(data).encode()
                 except Exception:
+                    # bytes type (no conversion)
                     data_utf = data
                 else:
                     data_utf = bytes(data_inner)
@@ -538,7 +541,7 @@ class CpuFreqCoreTest(CpuFreqTest):
             """
             # thread timer complete
             self.timer_running = False
-            # not subclassed, so callback to outer scope
+            # ObserveFreq not subclassed; callback to outer scope
             self.callback()
             # start another cycle
             self.run_timer_loop()
@@ -671,12 +674,12 @@ class CpuFreqCoreTest(CpuFreqTest):
                 workload_n)
             # stop workload loop
             self.__stop_loop = 0
+            # stop sampling
+            observe_freq.stop()
             # map freq results to core
             map_observed_freqs(freq)
             # reset list for next frequency
             self.__observed_freqs = []
-            # stop sampling
-            observe_freq.stop()
 
         # set paths relative to core
         path_set_speed = path.join(
@@ -690,12 +693,12 @@ class CpuFreqCoreTest(CpuFreqTest):
         for freq in self.scaling_freqs:
             # userspace governor required to write to scaling_setspeed
             if 'acpi-cpufreq' in self.scaling_driver:
-                # use scaling_setspeed
+                # use scaling_setspeed to set freq
                 self._write_cpu(path_set_speed, freq)
                 # begin scaling
                 scale_to_freq(freq)
             else:
-                # use scaling_max_freq
+                # use scaling_max_freq to set freq
                 self._write_cpu(path_max_freq, freq)
                 # begin scaling
                 scale_to_freq(freq)
