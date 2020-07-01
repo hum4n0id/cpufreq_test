@@ -133,10 +133,6 @@ class CpuFreqTest():
     def _write_cpu(self, fpath, data):
         """ Write sysfs/cpufreq file.
         """
-        # # ensure we write correct type
-        # if not isinstance(fname, bytes):
-        # open abs_path in binary mode, write
-
         def return_bytes_utf():
             """ Universal conversion to utf,
             for sysfs writes.
