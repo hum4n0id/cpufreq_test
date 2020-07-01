@@ -101,10 +101,6 @@ class CpuFreqTest():
             self.scaling_freqs.sort()
         # intel p_state, etc
         else:
-            self.scaling_freqs = list(map(int, append_max_min()))
-            self.scaling_freqs.sort()
-            self.startup_max_freq = self.scaling_freqs[1]
-            self.startup_min_freq = self.scaling_freqs[0]
             # setup path and status for intel pstate directives
             if 'intel_' in self.scaling_driver:
                 # /sys/devices/system/cpu/intel_pstate/status
@@ -112,6 +108,11 @@ class CpuFreqTest():
                     'intel_pstate', 'status')
                 self.startup_ipst_status = self._read_cpu(
                     self.path_ipst_status).rstrip('\n')
+            # use max, min freq for scaling table
+            self.scaling_freqs = list(map(int, append_max_min()))
+            self.scaling_freqs.sort()
+            self.startup_max_freq = self.scaling_freqs[1]
+            self.startup_min_freq = self.scaling_freqs[0]
 
     def _read_cpu(self, fpath):
         """ Read sysfs/cpufreq file.
@@ -283,6 +284,7 @@ class CpuFreqTest():
             else:
                 to_enable = set(present_cores) & set(offline_cores)
 
+            logging.info('* enabling thread siblings/hyperthreading:')
             logging.info('  - enabling cores: %s', to_enable)
             for core in to_enable:
                 fpath = path.join(
@@ -318,7 +320,7 @@ class CpuFreqTest():
             self.startup_governor = 'powersave'
         self.set_governors(self.startup_governor)
 
-        logging.info('* enabling thread siblings/hyperthreading:')
+        # enable offline cores
         enable_off_cores()
 
         # reset sysfs for non-acpi_cpufreq systems
@@ -492,24 +494,19 @@ class CpuFreqCoreTest(CpuFreqTest):
             self.next_call = time.time()
             self.timer_running = False
             # execute first loop on instantiation
-            self.loop()
+            self.run_timer_loop()
 
-        def observe(self):
-            # thread timer complete
-            self.timer_running = False
-            # not subclassed, so callback to outer scope
-            self.callback()
-            # start another cycle
-            self.loop()
-
-        def loop(self):
+        def run_timer_loop(self):
+            """ Facilitate callbacks at specified interval,
+            accounts and corrects for drift.
+            """
             # don't start if running,
             # prevents race condition
             if not self.timer_running:
                 # create time delta for consistent timing
                 self.next_call += self.interval
                 interval_delta = self.next_call - time.time()
-                # call observe() every interval_delta and loop
+                # call observe() after interval_delta passes
                 self.thread_timer = threading.Timer(
                     interval_delta, self.observe)
                 # cleanup timer threads on exit
@@ -517,7 +514,19 @@ class CpuFreqCoreTest(CpuFreqTest):
                 self.thread_timer.start()
                 self.timer_running = True
 
+        def observe(self):
+            """ Trigger callback to sample frequency.
+            """
+            # thread timer complete
+            self.timer_running = False
+            # not subclassed, so callback to outer scope
+            self.callback()
+            # start another cycle
+            self.run_timer_loop()
+
         def stop(self):
+            """ Called at scale duration completion.
+            """
             if self.thread_timer:
                 # event loop end
                 self.thread_timer.cancel()
@@ -572,21 +581,21 @@ class CpuFreqCoreTest(CpuFreqTest):
         logging.debug(self.__observed_freqs)
 
     def scale_all_freq(self):
-        """ Primary method to scale full range of freqs,
-        nested fns for encapsulation.
+        """ Primary method to scale full range of freqs.
         """
-        def calc_freq_avg(freqs, n_smpls=3):
+        def calc_freq_avg(freqs, window_size=3):
             """ Calculate moving average of observed_freqs.
             """
             freq_itr = iter(freqs)
             freq_deq = collections.deque(
-                itertools.islice(freq_itr, n_smpls - 1))
+                itertools.islice(
+                    freq_itr, window_size - 1))
             freq_deq.appendleft(0)
             freq_sum = sum(freq_deq)
             for elm in freq_itr:
                 freq_sum += elm - freq_deq.popleft()
                 freq_deq.append(elm)
-                yield freq_sum / n_smpls
+                yield freq_sum / window_size
 
         def map_observed_freqs(target_freq):
             """ Align freq key/values and split result lists
