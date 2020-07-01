@@ -21,6 +21,7 @@ import pprint
 import argparse
 import logging
 import psutil
+# from pudb import set_trace
 
 
 class CpuFreqExec(Exception):
@@ -132,12 +133,31 @@ class CpuFreqTest():
     def _write_cpu(self, fpath, data):
         """ Write sysfs/cpufreq file.
         """
+        # # ensure we write correct type
+        # if not isinstance(fname, bytes):
+        # open abs_path in binary mode, write
+
+        def return_utf(data):
+            try:
+                data_outer = data.encode()
+            except (AttributeError, TypeError):
+                try:
+                    data_inner = str(data).encode()
+                except Exception:
+                    data_utf = data
+                else:
+                    data_utf = bytes(data_inner)
+            else:
+                data_utf = bytes(data_outer)
+            return data_utf
+
+        data_utf = return_utf(data)
         abs_path = path.join(
             CpuFreqTest.path_root, fpath)
-        # open abs_path in binary mode, write
+
         try:
             with open(abs_path, 'wb') as _:
-                _.write(data)
+                _.write(data_utf)
         except OSError:
             raise CpuFreqExec(
                 'ERROR: unable to write file: %s' % abs_path)
@@ -239,7 +259,7 @@ class CpuFreqTest():
             fpath = path.join(
                 'cpu%i' % core,
                 'online')
-            self._write_cpu(fpath, b'0')
+            self._write_cpu(fpath, 0)
 
     def get_governors(self):
         governors = self._get_cpufreq_param(
@@ -256,7 +276,7 @@ class CpuFreqTest():
             fpath = path.join(
                 'cpu%i' % core,
                 'cpufreq', 'scaling_governor')
-            self._write_cpu(fpath, governor.encode())
+            self._write_cpu(fpath, governor)
 
     def reset(self):
         """ Enable all offline cpus,
@@ -266,11 +286,10 @@ class CpuFreqTest():
             """ Reset fn for pstate driver.
             """
             self._write_cpu(
-                self.path_ipst_status, b'off')
+                self.path_ipst_status, 'off')
             ipst_status = self._write_cpu(
-                self.path_ipst_status, bytes(
-                    self.startup_ipst_status.encode()))
-            logging.info('  - setting mode: %s', ipst_status.decode())
+                self.path_ipst_status, self.startup_ipst_status)
+            logging.info('  - setting mode: %s', ipst_status)
 
         def enable_off_cores():
             """ Enable all present and offline cores.
@@ -290,7 +309,7 @@ class CpuFreqTest():
                 fpath = path.join(
                     'cpu%i' % core,
                     'online')
-                self._write_cpu(fpath, b'1')
+                self._write_cpu(fpath, 1)
 
         def set_max_min():
             present_cores = self._get_cores('present')
@@ -303,12 +322,10 @@ class CpuFreqTest():
                     'cpufreq', 'scaling_min_freq')
                 # reset max freq
                 self._write_cpu(
-                    path_max,
-                    bytes(self.startup_max_freq.encode()))
+                    path_max, self.startup_max_freq)
                 # reset min freq
                 self._write_cpu(
-                    path_min,
-                    bytes(self.startup_min_freq.encode()))
+                    path_min, self.startup_min_freq)
 
         logging.info('* restoring startup governor:')
         # in case test ends prematurely from prior run
@@ -325,6 +342,7 @@ class CpuFreqTest():
 
         # reset sysfs for non-acpi_cpufreq systems
         if 'acpi-cpufreq' not in self.scaling_driver:
+            # intel_pstate, intel_cpufreq
             if 'intel_' in self.scaling_driver:
                 logging.info('* resetting intel p_state cpufreq driver')
                 # will reset max, min freq files
@@ -345,18 +363,18 @@ class CpuFreqTest():
         if 'intel_' in self.scaling_driver:
             # reset intel driver for clean slate
             self._write_cpu(
-                self.path_ipst_status, b'off')
+                self.path_ipst_status, 'off')
 
             # see if we can use the intel_cpufreq driver (fullest featured)
             try:
                 logging.info(
                     '* starting intel_cpufreq driver (p_state passive)')
-                self._write_cpu(self.path_ipst_status, b'passive')
+                self._write_cpu(self.path_ipst_status, 'passive')
             except CpuFreqExec:
                 # active mode available for all intel p_state systems
                 logging.info(
                     '  - failed: setting p_state mode to active')
-                self._write_cpu(self.path_ipst_status, b'active')
+                self._write_cpu(self.path_ipst_status, 'active')
 
             cur_ipst_status = self._read_cpu(
                 self.path_ipst_status).rstrip('\n')
@@ -411,10 +429,7 @@ class CpuFreqTest():
             """ Subclass instantiation & constructor for individual
             core.
             """
-            # get self pid
             proc = psutil.Process()
-            # record pid for tracking
-            # self.pid_list.append(proc.pid)
             # assign affinity to process
             proc.cpu_affinity(affinity)
             core = int(affinity[0])
@@ -463,11 +478,12 @@ class CpuFreqTest():
         # cleanup spawned core_test pids
         for proc in proc_list:
             # join core_test processes
-            proc.join(CpuFreqTest.proc_join_timeout)
+            proc.join(
+                CpuFreqTest.proc_join_timeout)
             # if not proc.is_alive():
             logging.debug('* PID %s joined parent', proc.pid)
             try:
-                proc_list.remove(proc)
+                proc_list.pop(proc)
             # skip if not found
             except ValueError:
                 continue
@@ -669,16 +685,15 @@ class CpuFreqCoreTest(CpuFreqTest):
 
         # iterate over suported freqs
         for freq in self.scaling_freqs:
-            freq_enc = str(freq).encode()
             # userspace governor required to write to scaling_setspeed
             if 'acpi-cpufreq' in self.scaling_driver:
                 # use scaling_setspeed
-                self._write_cpu(path_set_speed, freq_enc)
+                self._write_cpu(path_set_speed, freq)
                 # begin scaling
                 scale_to_freq(freq)
             else:
                 # use scaling_max_freq
-                self._write_cpu(path_max_freq, freq_enc)
+                self._write_cpu(path_max_freq, freq)
                 # begin scaling
                 scale_to_freq(freq)
 
