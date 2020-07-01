@@ -138,6 +138,9 @@ class CpuFreqTest():
         # open abs_path in binary mode, write
 
         def return_utf(data):
+            """ Universal conversion to utf,
+            for sysfs writes.
+            """
             try:
                 data_outer = data.encode()
             except (AttributeError, TypeError):
