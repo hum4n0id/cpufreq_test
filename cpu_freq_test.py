@@ -680,7 +680,7 @@ class CpuFreqCoreTest(CpuFreqTest):
             self.__instance_cpu, 'cpufreq',
             'scaling_max_freq')
 
-        # iterate over suported freqs
+        # iterate over supported frequency scaling table
         for idx, freq in enumerate(self.scaling_freqs):
             if idx:
                 # reset freq list
