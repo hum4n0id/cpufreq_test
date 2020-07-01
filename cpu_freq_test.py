@@ -554,7 +554,7 @@ class CpuFreqCoreTest(CpuFreqTest):
         # mangle all instance attributes
         self.__instance_core = int(core)  # core under test
         self.__instance_cpu = 'cpu' + str(core)  # str cpu ref
-        self.__stop_loop = 0  # signal.alarm semaphore
+        self.__stop_loop = False  # init signal.alarm semaphore
         self.__observed_freqs = []  # recorded freqs
         self.__observed_freqs_dict = {}  # core: recorded freqs
         self.__observed_freqs_rdict = {}  # raw recorded freqs (float)
@@ -632,7 +632,8 @@ class CpuFreqCoreTest(CpuFreqTest):
             """
             # args unused; *args present for signal callback
             del args
-            self.__stop_loop = 1
+            # stop workload loop
+            self.__stop_loop = True
 
         def execute_workload(workload_n):
             """ Perform maths to load core.
@@ -666,14 +667,10 @@ class CpuFreqCoreTest(CpuFreqTest):
             # start loading core
             execute_workload(
                 workload_n)
-            # stop workload loop
-            self.__stop_loop = 0
             # stop sampling
             observe_freq.stop()
             # map freq results to core
             map_observed_freqs(freq)
-            # reset list for next frequency
-            self.__observed_freqs = []
 
         # set paths relative to core
         path_set_speed = path.join(
@@ -684,8 +681,14 @@ class CpuFreqCoreTest(CpuFreqTest):
             'scaling_max_freq')
 
         # iterate over suported freqs
-        for freq in self.scaling_freqs:
-            # userspace governor required to write to scaling_setspeed
+        for idx, freq in enumerate(self.scaling_freqs):
+            if idx:
+                # reset freq list
+                self.__observed_freqs = []
+                # reset workload loop bit
+                self.__stop_loop = False
+
+            # userspace governor required to write to scaling_setspeed1
             if 'acpi-cpufreq' in self.scaling_driver:
                 # use scaling_setspeed to scale to freq
                 self._write_cpu(path_set_speed, freq)
