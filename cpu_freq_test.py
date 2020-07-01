@@ -8,18 +8,17 @@ todo optional (nice to have):
 """
 
 from os import path
-import collections
-import itertools
 import multiprocessing
+import collections
 import threading
-import time
-import random
-import signal
-import sys
-import math
-import pprint
 import argparse
 import logging
+import random
+import signal
+import pprint
+import math
+import time
+import sys
 import psutil
 # from pudb import set_trace
 
@@ -601,33 +600,31 @@ class CpuFreqCoreTest(CpuFreqTest):
     def scale_all_freq(self):
         """ Primary method to scale full range of freqs.
         """
-        def calc_freq_avg(freqs, window_size=3):
-            """ Calculate moving average of observed_freqs.
-            """
-            freq_itr = iter(freqs)
-            freq_deq = collections.deque(
-                itertools.islice(
-                    freq_itr, window_size - 1))
-            freq_deq.appendleft(0)
-            freq_sum = sum(freq_deq)
-            for elm in freq_itr:
-                freq_sum += elm - freq_deq.popleft()
-                freq_deq.append(elm)
-                yield freq_sum / window_size
+        def calc_freq_median(freqs):
+            n_samples = len(freqs)
+            # floor division req.
+            index = n_samples // 2
+            # odd number of samples in observed_freqs
+            if n_samples % 2:
+                freq_median = sorted(freqs)[index]
+            # even number of samples in observed_freqs
+            else:
+                freq_median = sum(
+                    sorted(freqs)[(index - 1):(index + 1)]) / 2
+            return freq_median
 
         def map_observed_freqs(target_freq):
             """ Align freq key/values and split result lists
             for grouping.
             """
-            freq_avg = calc_freq_avg(self.__observed_freqs)
-
-            # write avg freq to dict value with target freq as key
-            for freq in freq_avg:
-                self.__observed_freqs_dict.update(
-                    {target_freq: freq})
-                # pack results for raw data record
-                self.__observed_freqs_rdict.update(
-                    {target_freq: self.__observed_freqs})
+            # get median of observed freqs
+            freq_med = calc_freq_median(self.__observed_freqs)
+            # target_freq = key, freq_median = value
+            self.__observed_freqs_dict.update(
+                {target_freq: freq_med})
+            # raw data record
+            self.__observed_freqs_rdict.update(
+                {target_freq: self.__observed_freqs})
 
         def handle_alarm(*args):
             """ Alarm trigger callback,
