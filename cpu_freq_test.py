@@ -525,12 +525,13 @@ class CpuFreqCoreTest(CpuFreqTest):
             # don't start if running,
             # prevents race condition
             if not self.timer_running:
-                # create time delta for consistent timing
+                # offset interval
                 self.next_call += self.interval
-                interval_delta = self.next_call - time.time()
-                # call observe() after interval_delta passes
+                # create time delta for consistent timing
+                time_delta = self.next_call - time.time()
+                # call observe() after time_delta passes
                 self.thread_timer = threading.Timer(
-                    interval_delta, self.observe)
+                    time_delta, self.observe)
                 # cleanup timer threads on exit
                 self.thread_timer.daemon = True
                 self.thread_timer.start()
