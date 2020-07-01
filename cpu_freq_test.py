@@ -486,7 +486,7 @@ class CpuFreqTest():
             # if not proc.is_alive():
             logging.debug('* PID %s joined parent', proc.pid)
             try:
-                proc_list.pop(proc)
+                proc_list.remove(proc)
             # skip if not found
             except ValueError:
                 continue
