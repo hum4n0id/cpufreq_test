@@ -653,7 +653,7 @@ class CpuFreqCoreTest(CpuFreqTest):
             logging.info('* testing: %s || target freq: %i || workload n: %i',
                          self.__instance_cpu, freq, workload_n)
 
-        def scale_to_freq(freq):
+        def load_sample_map(freq):
             """ Proxy fn to scale core to freq.
             """
             # gen randint for workload factorial calcs
@@ -667,9 +667,9 @@ class CpuFreqCoreTest(CpuFreqTest):
             observe_freq = self.ObserveFreq(
                 interval=CpuFreqTest.observe_interval,
                 callback=self._observe_freq_cb)
-            # logging.info messages
+            # provide feedback on test status
             log_freq_scaling(freq, workload_n)
-            # pass random int to workload and load core
+            # start loading core
             execute_workload(
                 workload_n)
             # stop workload loop
@@ -693,20 +693,20 @@ class CpuFreqCoreTest(CpuFreqTest):
         for freq in self.scaling_freqs:
             # userspace governor required to write to scaling_setspeed
             if 'acpi-cpufreq' in self.scaling_driver:
-                # use scaling_setspeed to set freq
+                # use scaling_setspeed to scale to freq
                 self._write_cpu(path_set_speed, freq)
-                # begin scaling
-                scale_to_freq(freq)
+                # facilitate testing
+                load_sample_map(freq)
             else:
-                # use scaling_max_freq to set freq
+                # use scaling_max_freq to scale to freq
                 self._write_cpu(path_max_freq, freq)
-                # begin scaling
-                scale_to_freq(freq)
+                # facilitate testing
+                load_sample_map(freq)
 
 
 def parse_args_logging():
     def init_logging(args):
-        # stdout for argparse logging lvls
+        # stdout for argparsed logging lvls
         stdout_handler = logging.StreamHandler(sys.stdout)
         stdout_handler.setLevel(args.log_level)
         # stderr for exceptions
@@ -717,6 +717,7 @@ def parse_args_logging():
         base_logging = logging.getLogger()
         # set base logging level to pipe StreamHandler() thru
         base_logging.setLevel(logging.NOTSET)
+
         # start logging
         base_logging.addHandler(stdout_handler)
         base_logging.addHandler(stderr_handler)
