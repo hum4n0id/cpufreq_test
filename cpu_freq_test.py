@@ -135,19 +135,15 @@ class CpuFreqTest():
         """ Write sysfs/cpufreq file.
         """
         def return_bytes_utf():
-            """ Universal conversion to utf,
+            """ Data type conversion to utf,
             for sysfs writes.
             """
             try:
                 # str type
                 data_enc = data.encode()
             except (AttributeError, TypeError):
-                try:
-                    # int, float type
-                    data_enc = str(data).encode()
-                except Exception:
-                    # pass thru
-                    data_utf = data
+                # int, float type
+                data_enc = str(data).encode()
             data_utf = bytes(data_enc)
             return data_utf
 
@@ -706,6 +702,8 @@ class CpuFreqCoreTest(CpuFreqTest):
 
 
 def parse_args_logging():
+    """ Ingest arguments and init logging.
+    """
     def init_logging(args):
         # stdout for argparsed logging lvls
         stdout_handler = logging.StreamHandler(sys.stdout)
