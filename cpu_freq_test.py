@@ -143,21 +143,22 @@ class CpuFreqTest():
             """
             try:
                 # str type
-                data_outer = data.encode()
+                data_enc = data.encode()
             except (AttributeError, TypeError):
                 try:
                     # int, float type
-                    data_inner = str(data).encode()
+                    data_enc = str(data).encode()
                 except Exception:
-                    # bytes type (no conversion)
+                    # pass thru
                     data_utf = data
-                else:
-                    data_utf = bytes(data_inner)
-            else:
-                data_utf = bytes(data_outer)
+            data_utf = bytes(data_enc)
             return data_utf
 
-        data_utf = return_utf()
+        if not isinstance(data, bytes):
+            data_utf = return_utf()
+        else:
+            data_utf = data
+
         abs_path = path.join(
             CpuFreqTest.path_root, fpath)
 
