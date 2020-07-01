@@ -154,6 +154,7 @@ class CpuFreqTest():
             data_utf = bytes(data_enc)
             return data_utf
 
+        # do not convert bytes()
         if not isinstance(data, bytes):
             data_utf = return_bytes_utf()
         else:
@@ -161,7 +162,7 @@ class CpuFreqTest():
 
         abs_path = path.join(
             CpuFreqTest.path_root, fpath)
-
+        # write utf bytes to cpufreq sysfs
         try:
             with open(abs_path, 'wb') as _:
                 _.write(data_utf)
