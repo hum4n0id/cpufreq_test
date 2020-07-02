@@ -1,8 +1,25 @@
 # !/usr/bin/env python3
 
 """
-todo/verify:
-* change header to Canonical official syntax
+Copyright (C) 2020 Canonical Ltd.
+
+Authors
+  Adrian Lane <adrian.lane@canonical.com>
+
+This program is free software: you can redistribute it and/or modify
+it under the terms of the GNU General Public License version 3,
+as published by the Free Software Foundation.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU General Public License for more details.
+
+You should have received a copy of the GNU General Public License
+along with this program.  If not, see <http://www.gnu.org/licenses/>.
+
+* Test and validate sut cpu scaling capabilities.
+
 todo optional (nice to have):
 * check if workload needs to scale with processor power
 """
@@ -20,7 +37,6 @@ import math
 import time
 import sys
 import psutil
-# from pudb import set_trace
 
 
 class CpuFreqExec(Exception):
@@ -380,7 +396,7 @@ class CpuFreqTest():
             # see if we can use the intel_cpufreq driver (fullest featured)
             try:
                 logging.info(
-                    '* starting intel_cpufreq driver (p_state passive)')
+                    '* starting intel_cpufreq driver:')
                 self._write_cpu(self.path_ipst_status, 'passive')
             except CpuFreqExec:
                 # active mode available for all intel p_state systems
@@ -413,7 +429,7 @@ class CpuFreqTest():
         # facilitate house cleaning
         # terminate dangling processes post .join()
         if self.__proc_list:
-            logging.info('* cleaning up dangling pids:')
+            logging.info('* terminating dangling pids')
             for proc in self.__proc_list:
                 proc.terminate()
                 # logging.info('  - PID %i terminated', proc.pid)
