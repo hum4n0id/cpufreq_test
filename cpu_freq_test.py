@@ -534,7 +534,7 @@ class CpuFreqCoreTest(CpuFreqTest):
         def observe(self):
             """ Trigger callback to sample frequency.
             """
-            # thread timer complete
+            # reset timer running bit
             self.timer_running = False
             # ObserveFreq not subclassed; callback to outer scope
             self.callback()
@@ -553,7 +553,7 @@ class CpuFreqCoreTest(CpuFreqTest):
         super().__init__()
         # mangle all instance attributes
         self.__instance_core = int(core)  # core under test
-        self.__instance_cpu = 'cpu' + str(core)  # str cpu ref
+        self.__instance_cpu = 'cpu%i' % core  # str cpu ref
         self.__stop_loop = False  # init signal.alarm semaphore
         self.__observed_freqs = []  # recorded freqs
         self.__observed_freqs_dict = {}  # core: recorded freqs
@@ -688,14 +688,13 @@ class CpuFreqCoreTest(CpuFreqTest):
                 # reset workload loop bit
                 self.__stop_loop = False
 
-            # userspace governor required to write to scaling_setspeed1
+            # acpi supports full freq table scaling
             if 'acpi-cpufreq' in self.scaling_driver:
-                # use scaling_setspeed to scale to freq
                 self._write_cpu(path_set_speed, freq)
                 # facilitate testing
                 load_sample_map(freq)
+            # others support max, min freq scaling
             else:
-                # use scaling_max_freq to scale to freq
                 self._write_cpu(path_max_freq, freq)
                 # facilitate testing
                 load_sample_map(freq)
