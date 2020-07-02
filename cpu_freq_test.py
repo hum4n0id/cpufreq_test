@@ -577,7 +577,7 @@ class CpuFreqCoreTest(CpuFreqTest):
         # mangle instance attributes
         self.__instance_core = int(core)  # core under test
         self.__instance_cpu = 'cpu%i' % core  # str cpu ref
-        self.__stop_loop = False  # init signal.alarm semaphore
+        self.__stop_scaling = False  # init signal.alarm semaphore
         self.__observed_freqs = []  # recorded freqs
         self.__observed_freqs_dict = {}  # core: recorded freqs
         self.__observed_freqs_rdict = {}  # raw recorded freqs (float)
@@ -658,12 +658,12 @@ class CpuFreqCoreTest(CpuFreqTest):
             # args unused; *args present for signal callback
             del args
             # stop workload loop
-            self.__stop_loop = True
+            self.__stop_scaling = True
 
         def execute_workload(workload_n):
             """ Perform maths to load core.
             """
-            while not self.__stop_loop:
+            while not self.__stop_scaling:
                 math.factorial(workload_n)
 
         def log_freq_scaling(freq, workload_n):
@@ -713,7 +713,7 @@ class CpuFreqCoreTest(CpuFreqTest):
                 # reset freq list
                 self.__observed_freqs = []
                 # reset workload loop bit
-                self.__stop_loop = False
+                self.__stop_scaling = False
 
             # acpi supports full freq table scaling
             if 'acpi-cpufreq' in self.scaling_driver:
