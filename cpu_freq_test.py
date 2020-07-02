@@ -508,9 +508,9 @@ class CpuFreqTest():
             # join core_test processes
             proc.join(
                 CpuFreqTest.proc_join_timeout)
+            logging.debug(
+                '* PID %s joined parent', proc.pid)
             time.sleep(.1)
-            # if not proc.is_alive():
-            logging.debug('* PID %s joined parent', proc.pid)
 
         # update attribute to perfrom 2nd pass terminate
         self.__proc_list = proc_list
