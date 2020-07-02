@@ -52,7 +52,12 @@ class CpuFreqTest():
     proc_join_timeout = 5
 
     def __init__(self):
+        """ Instance attributes.
+        """
         def append_max_min():
+            """ Create scaling table from max_freq,
+            min_freq cpufreq files.
+            """
             scaling_freqs = []
             path_max = path.join(
                 'cpu0', 'cpufreq', 'scaling_max_freq')
@@ -206,8 +211,9 @@ class CpuFreqTest():
     def _process_results(self):
         """ Process results from CpuFreqCoreTest()
         """
-        # transpose and append results from subclass
         def comp_freq_dict(inner_key, inner_val):
+            """ Transpose and append results from subclass.
+            """
             if inner_val:
                 # get % avg_freq/target_freq
                 result_pct = int((inner_val / inner_key) * 100)
@@ -239,6 +245,8 @@ class CpuFreqTest():
         aka hyperthreading.
         """
         def get_thread_siblings():
+            """ Get hyperthread cores to offline.
+            """
             thread_siblings = []
             online_cores = self._get_cores('online')
             for core in online_cores:
@@ -312,6 +320,8 @@ class CpuFreqTest():
                 self._write_cpu(fpath, 1)
 
         def set_max_min():
+            """ Set max_frequency and min_frequency cpufreq files.
+            """
             present_cores = self._get_cores('present')
             for core in present_cores:
                 path_max = path.join(
@@ -601,6 +611,8 @@ class CpuFreqCoreTest(CpuFreqTest):
         """ Primary method to scale full range of freqs.
         """
         def calc_freq_median(freqs):
+            """ Get the median value of observed freqs.
+            """
             n_samples = len(freqs)
             # floor division req.
             index = n_samples // 2
@@ -704,6 +716,8 @@ def parse_args_logging():
     """ Ingest arguments and init logging.
     """
     def init_logging(args):
+        """ Parse and set logging levels, start logging.
+        """
         # stdout for argparsed logging lvls
         stdout_handler = logging.StreamHandler(sys.stdout)
         stdout_handler.setLevel(args.log_level)
