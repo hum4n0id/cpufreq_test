@@ -518,12 +518,11 @@ class CpuFreqTest():
 
 class CpuFreqCoreTest(CpuFreqTest):
     """ Subclass to facilitate concurrent frequency scaling.
-    Every physical core will self-test freq. scaling capabilities at once.
     """
     class ObserveFreq:
         """ Class for instantiating observation thread.
-        Non-blocking and locked to system time to avoid
-        exponentional drift as frequency scaling occurs.
+        Non-blocking and locked to system time to prevent
+        exponentional timer drift as frequency scaling occurs.
         """
         # dev note: encapsulating this functionality in
         # a core_test nested class was cleanest way to
@@ -531,10 +530,10 @@ class CpuFreqCoreTest(CpuFreqTest):
         def __init__(self, interval, callback):
             """ Execute start_timer on instantiation.
             """
-            self.timer_running = False
-            self.thread_timer = None
             self.interval = interval
             self.callback = callback
+            self.thread_timer = None
+            self.timer_running = False
             self.next_call = time.time()
             self.start_timer()
 
@@ -550,7 +549,7 @@ class CpuFreqCoreTest(CpuFreqTest):
                 # call observe() after time_delta passes
                 self.thread_timer = threading.Timer(
                     time_delta, self.observe)
-                # cleanup timer threads on exit
+                # cleanup spawned timer threads on exit
                 self.thread_timer.daemon = True
                 self.thread_timer.start()
                 self.timer_running = True
