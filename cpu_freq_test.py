@@ -102,7 +102,8 @@ class CpuFreqTest():
             scaling_freqs = self._read_cpu(
                 path_scaling_freqs).rstrip('\n').split()
             # cast freqs to int
-            self.scaling_freqs = list(map(int, scaling_freqs))
+            self.scaling_freqs = list(
+                map(int, scaling_freqs))
             # test freqs in ascending order
             self.scaling_freqs.sort()
         # intel p_state, etc
@@ -115,7 +116,8 @@ class CpuFreqTest():
                 self.startup_ipst_status = self._read_cpu(
                     self.path_ipst_status).rstrip('\n')
             # use max, min freq for scaling table
-            self.scaling_freqs = list(map(int, append_max_min()))
+            self.scaling_freqs = list(
+                map(int, append_max_min()))
             self.scaling_freqs.sort()
             self.startup_max_freq = self.scaling_freqs[1]
             self.startup_min_freq = self.scaling_freqs[0]
@@ -514,20 +516,19 @@ class CpuFreqCoreTest(CpuFreqTest):
         # a core_test nested class was cleanest way to
         # sample data while not blocking testing threads.
         def __init__(self, interval, callback):
+            """ Execute start_timer on instantiation.
+            """
+            self.timer_running = False
             self.thread_timer = None
             self.interval = interval
             self.callback = callback
             self.next_call = time.time()
-            self.timer_running = False
-            # execute first loop on instantiation
-            self.run_timer_loop()
+            self.start_timer()
 
-        def run_timer_loop(self):
+        def start_timer(self):
             """ Facilitate callbacks at specified interval,
             accounts and corrects for drift.
             """
-            # don't start if running,
-            # prevents race condition
             if not self.timer_running:
                 # offset interval
                 self.next_call += self.interval
@@ -544,15 +545,15 @@ class CpuFreqCoreTest(CpuFreqTest):
         def observe(self):
             """ Trigger callback to sample frequency.
             """
-            # reset timer running bit
+            # reset timer_running
             self.timer_running = False
             # ObserveFreq not subclassed; callback to outer scope
             self.callback()
-            # start another cycle
-            self.run_timer_loop()
+            # start another tt cycle
+            self.start_timer()
 
         def stop(self):
-            """ Called at scale duration completion.
+            """ Called when frequency scaling completed.
             """
             if self.thread_timer:
                 # event loop end
@@ -561,7 +562,7 @@ class CpuFreqCoreTest(CpuFreqTest):
 
     def __init__(self, core):
         super().__init__()
-        # mangle all instance attributes
+        # mangle instance attributes
         self.__instance_core = int(core)  # core under test
         self.__instance_cpu = 'cpu%i' % core  # str cpu ref
         self.__stop_loop = False  # init signal.alarm semaphore
@@ -657,10 +658,11 @@ class CpuFreqCoreTest(CpuFreqTest):
             """ Method to provide feedback for debug/verbose
             logging.
             """
-            logging.info('* testing: %s || target freq: %i || workload n: %i',
-                         self.__instance_cpu, freq, workload_n)
+            logging.info(
+                '* testing: %s || target freq: %i || workload n: %i',
+                self.__instance_cpu, freq, workload_n)
 
-        def load_sample_map(freq):
+        def load_observe_map(freq):
             """ Proxy fn to scale core to freq.
             """
             # gen randint for workload factorial calcs
@@ -694,6 +696,7 @@ class CpuFreqCoreTest(CpuFreqTest):
 
         # iterate over supported frequency scaling table
         for idx, freq in enumerate(self.scaling_freqs):
+            # re-init some attributes after 1st pass
             if idx:
                 # reset freq list
                 self.__observed_freqs = []
@@ -702,14 +705,14 @@ class CpuFreqCoreTest(CpuFreqTest):
 
             # acpi supports full freq table scaling
             if 'acpi-cpufreq' in self.scaling_driver:
+                # write to sysfs
                 self._write_cpu(path_set_speed, freq)
                 # facilitate testing
-                load_sample_map(freq)
+                load_observe_map(freq)
             # others support max, min freq scaling
             else:
                 self._write_cpu(path_max_freq, freq)
-                # facilitate testing
-                load_sample_map(freq)
+                load_observe_map(freq)
 
 
 def parse_args_logging():
