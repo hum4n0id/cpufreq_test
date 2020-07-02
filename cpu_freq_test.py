@@ -416,7 +416,7 @@ class CpuFreqTest():
             logging.info('* cleaning up dangling pids:')
             for proc in self.__proc_list:
                 proc.terminate()
-                logging.info('  - PID %i terminated', proc.pid)
+                # logging.info('  - PID %i terminated', proc.pid)
         logging.info('* active threads: %i', threading.active_count())
 
         # process results
@@ -492,14 +492,11 @@ class CpuFreqTest():
             # join core_test processes
             proc.join(
                 CpuFreqTest.proc_join_timeout)
+            time.sleep(.1)
             # if not proc.is_alive():
             logging.debug('* PID %s joined parent', proc.pid)
-            try:
-                proc_list.remove(proc)
-            # skip if not found
-            except ValueError:
-                continue
-        # update attribute
+
+        # update attribute to perfrom 2nd pass terminate
         self.__proc_list = proc_list
 
 
