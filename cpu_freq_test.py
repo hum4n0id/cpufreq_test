@@ -4,7 +4,7 @@
 Copyright (C) 2020 Canonical Ltd.
 
 Authors
-  Adrian Lane <adrian.lane@canonical.com>
+  adrian lane <adrian.lane@canonical.com>
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License version 3,
@@ -18,7 +18,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-* Test and validate sut cpu scaling capabilities.
+* test and validate sut cpu scaling capabilities
 
 todo optional (nice to have):
 * check if workload needs to scale with processor power
@@ -51,12 +51,12 @@ class CpuFreqTest():
     """ Test cpufreq scaling capabilities.
     """
     # class attributes / statics
-
+    path_root = '/sys/devices/system/cpu'
     # time to stay at frequency under load (sec)
     # more time = more resolution
     # should be gt observe_interval
     scale_duration = 15
-    # frequency sampling interval (thread timer)
+    # frequency sampling interval (sec)
     # should be lt scale_duration
     observe_interval = 1
     # max, min percentage of avg freq allowed to pass,
@@ -64,8 +64,8 @@ class CpuFreqTest():
     # ex: max = 110, min = 90 is 20% passing tolerance
     max_freq_pct = 110
     min_freq_pct = 90
-    # time to wait for child join to complete
-    proc_join_timeout = 5
+    # time budget for result_queue to empty (sec)
+    rqueue_join_timeout = 5
 
     def __init__(self):
         """ Instance attributes.
@@ -85,14 +85,13 @@ class CpuFreqTest():
                 path_min).rstrip('\n'))
             return scaling_freqs
 
-        self.path_root = '/sys/devices/system/cpu'
+        self.path_root = CpuFreqTest.path_root
         self.__fail_count = 0
         # attributes common to all cores
         self.__proc_list = []  # pids for core affinity assignment
 
         # chainmap object constructor
         self.freq_chainmap = collections.ChainMap()
-        self.freq_result_map = {}  # final results
 
         # cpufreq driver
         path_scaling_driver = path.join(
@@ -250,13 +249,13 @@ class CpuFreqTest():
             return new_inner_val
 
         # create master result table with dict comp.
-        self.freq_result_map = {
+        freq_result_map = {
             outer_key: {
                 inner_key: comp_freq_dict(inner_key, inner_val)
                 for inner_key, inner_val in outer_val.items()}
             for outer_key, outer_val in self.freq_chainmap.items()}
 
-        return self.freq_result_map
+        return freq_result_map
 
     def disable_thread_siblings(self):
         """ Disable all threads attached to the same core,
@@ -384,6 +383,8 @@ class CpuFreqTest():
         appropriate exit code.
         """
         # disable thread siblings/hyperthread cores
+        print('[CpuFreqTest Begin]')
+        print('-------------------')
         logging.info('* disabling thread siblings (hyperthreading):')
         self.disable_thread_siblings()
 
@@ -418,12 +419,12 @@ class CpuFreqTest():
 
         # spawn core_tests concurrently
         self.spawn_core_test()
-        print('\n##[--------------]##')
-        print('##[TEST COMPLETE!]##')
-        print('##[--------------]##\n')
+        print('\n---------------')
+        print('[TEST COMPLETE]')
+        print('---------------\n')
 
         # reset state and cleanup
-        logging.info('##[resetting cpus]##')
+        logging.info('[resetting cpus]')
         self.reset()
 
         # facilitate house cleaning
@@ -436,18 +437,18 @@ class CpuFreqTest():
         logging.info('* active threads: %i', threading.active_count())
 
         # process results
-        print('\n##[results]##')
+        print('\n[results]')
         print('-legend:')
         print(' core: target_freq: [sampled_avg_%, P/F, sampled_avg],\n')
         # pretty result output
         pprint.pprint(self._process_results())
 
         if self.__fail_count:
-            print('\nTest Failed')
+            print('\n[Test Failed]')
             print('fail_count =', self.__fail_count)
             return 1
 
-        print('\nTest Passed')
+        print('\n[Test Passed]')
         return 0
 
     def spawn_core_test(self):
@@ -460,22 +461,37 @@ class CpuFreqTest():
             proc = psutil.Process()
             # assign affinity to process
             proc.cpu_affinity(affinity)
+            # assign value from kwarg affinity to core
             core = int(affinity[0])
             # intantiate core_test
             cpu_freq_ctest = CpuFreqCoreTest(core)
             # execute freq scaling
             cpu_freq_ctest.scale_all_freq()
             freq_map = cpu_freq_ctest.__call__()
-
             # map results to core
             output.put(freq_map)
 
-        proc_list = []
+        def process_rqueue(queue_depth, result_queue):
+            """ Get and process core_test result_queue.
+            """
+            # get queued core_test results
+            for _ in range(queue_depth):
+                # pipe results from core_test
+                child_queue = result_queue.get()
+                # append to chainmap object
+                self.freq_chainmap = self.freq_chainmap.new_child(
+                    child_queue)
+                # prepare to cleanly .join, close queue
+                result_queue.task_done()
+            # join and close queue
+            result_queue.join()
+            result_queue.close()
+
+        mp_proc_list = []
         pid_list = []
         # create queue for piping results
-        result_queue = multiprocessing.Queue()
+        result_queue = multiprocessing.JoinableQueue()
         online_cores = self._get_cores('online')
-        # first spawn children, then start workload
         online_cores.sort(reverse=True)
 
         # assign affinity and spawn core_test
@@ -483,37 +499,39 @@ class CpuFreqTest():
             affinity = [core]
             affinity_dict = dict(
                 affinity=affinity)
-            proc = multiprocessing.Process(
+            mp_proc = multiprocessing.Process(
                 target=run_child,
                 args=(result_queue,),
                 kwargs=affinity_dict)
-            # invoke core_test
-            proc.start()
-            proc_list.append(proc)
-            pid_list.append(proc.pid)
+            # start core_test
+            mp_proc.start()
+            mp_proc_list.append(mp_proc)
+            # for logging/output
+            pid_list.append(mp_proc.pid)
 
-        logging.debug('* spawned PIDs performing core_testing:')
-        logging.debug('  - %r', pid_list)
+        n_procs = len(mp_proc_list)
+        logging.debug(
+            '* spawned PIDs performing core_testing:\n'
+            '  - %r', pid_list)
+        # from pudb import set_trace; set_trace()
 
-        # get queued core_test results
-        for core in online_cores:
-            # pipe results from core_test
-            child_queue = result_queue.get()
-            # append to chainmap object
-            self.freq_chainmap = self.freq_chainmap.new_child(
-                child_queue)
+        # get + process queues; len(mp_proc_list) == len(online_cores)
+        process_rqueue(n_procs, result_queue)
 
         # cleanup spawned core_test pids
-        for proc in proc_list:
-            # join core_test processes
-            proc.join(
-                CpuFreqTest.proc_join_timeout)
-            logging.debug(
-                '* PID %s joined parent', proc.pid)
-            time.sleep(.1)
-
-        # update attribute to perfrom 2nd pass terminate
-        self.__proc_list = proc_list
+        for idx, proc in enumerate(mp_proc_list):
+            if idx:
+                time.sleep(.1)
+            # join child processes
+            child_return = mp_proc.join()
+            if child_return is None:
+                logging.info(
+                    '* PID %s joined parent', pid_list[idx])
+            else:
+                # can terminate in reset/cleanup subroutine
+                continue
+        # update attribute to perfrom a 2nd pass terminate
+        self.__proc_list = mp_proc_list
 
 
 class CpuFreqCoreTest(CpuFreqTest):
@@ -541,6 +559,7 @@ class CpuFreqCoreTest(CpuFreqTest):
             """ Facilitate callbacks at specified interval,
             accounts and corrects for drift.
             """
+            # protect against race cond.
             if not self.timer_running:
                 # offset interval
                 self.next_call += self.interval
@@ -624,7 +643,7 @@ class CpuFreqCoreTest(CpuFreqTest):
         """ Primary method to scale full range of freqs.
         """
         def calc_freq_median(freqs):
-            """ Get the median value of observed freqs.
+            """ Calculate the median value of observed freqs.
             """
             n_samples = len(freqs)
             # floor division req.
@@ -643,17 +662,16 @@ class CpuFreqCoreTest(CpuFreqTest):
             for grouping.
             """
             # get median of observed freqs
-            freq_med = calc_freq_median(self.__observed_freqs)
+            freq_median = calc_freq_median(self.__observed_freqs)
             # target_freq = key, freq_median = value
             self.__observed_freqs_dict.update(
-                {target_freq: freq_med})
+                {target_freq: freq_median})
             # raw data record
             self.__observed_freqs_rdict.update(
                 {target_freq: self.__observed_freqs})
 
         def handle_alarm(*args):
-            """ Alarm trigger callback,
-            unload core
+            """ Alarm trigger callback, unload core
             """
             # args unused; *args present for signal callback
             del args
@@ -788,7 +806,7 @@ def main():
     cpu_freq_test = CpuFreqTest()
     if args.reset:
         cpu_freq_test.reset()
-        print('reset cpufreq sysfs')
+        print('\n[reset cpufreq sysfs]')
     elif args.gov:
         print(cpu_freq_test.get_governors())
     else:
