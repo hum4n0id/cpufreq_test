@@ -751,6 +751,8 @@ def parse_args_logging():
     def init_logging(args):
         """ Parse and set logging levels, start logging.
         """
+        # levels: CRITICAL, ERROR, WARNING, INFO, DEBUG, NOTSET
+        # lvlnum: 50      , 40   , 30     , 20  , 10   , 0
         # stdout for argparsed logging lvls
         stdout_handler = logging.StreamHandler(sys.stdout)
         stdout_handler.setLevel(args.log_level)
@@ -768,8 +770,6 @@ def parse_args_logging():
         base_logging.addHandler(stderr_handler)
 
     parser = argparse.ArgumentParser()
-    # levels: CRITICAL, ERROR, WARNING, INFO, DEBUG, NOTSET
-    # lvlnum: 50      , 40   , 30     , 20  , 10   , 0
     # only allow one arg
     parser_mutex_grp = parser.add_mutually_exclusive_group()
     parser_mutex_grp.add_argument(
