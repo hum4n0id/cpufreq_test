@@ -790,7 +790,7 @@ def parse_args_logging():
     parser_mutex_grp.add_argument(
         '-r', '--reset',
         action='store_true',
-        help='reset cpufreq sysfs (governor, max/min, pstate)')
+        help='reset cpufreq sysfs (governor, ht, max/min, pstate)')
     parser_mutex_grp.add_argument(
         '-g', '--gov',
         action='store_true',
