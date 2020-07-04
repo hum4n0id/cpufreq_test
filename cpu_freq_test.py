@@ -592,7 +592,7 @@ class CpuFreqCoreTest(CpuFreqTest):
         # mangle instance attributes
         self.__instance_core = int(core)  # core under test
         self.__instance_cpu = 'cpu%i' % core  # str cpu ref
-        self.__instance_pid = pid
+        self.__instance_pid = pid  # worker pid for logging output
         self.__stop_scaling = False  # init signal.alarm semaphore
         self.__observed_freqs = []  # recorded freqs
         self.__observed_freqs_dict = {}  # core: recorded freqs
