@@ -794,6 +794,7 @@ def parse_args_logging():
         action='store_true',
         help='get active governor (global/all cpu)')
     args = parser.parse_args()
+    # begin logging
     init_logging(args)
     return args
 
