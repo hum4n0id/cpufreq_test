@@ -419,6 +419,7 @@ class CpuFreqTest():
             self.set_governors('performance')
 
         # spawn core_tests concurrently
+        logging.info('---------------------')
         self.spawn_core_test()
         print('\n-----------------\n'
               '| Test Complete |\n'
@@ -726,6 +727,8 @@ class CpuFreqCoreTest(CpuFreqTest):
         for idx, freq in enumerate(self.scaling_freqs):
             # re-init some attributes after 1st pass
             if idx:
+                # prevent race cond.
+                time.sleep(.3)
                 # reset freq list
                 self.__observed_freqs = []
                 # reset workload loop bit
