@@ -485,6 +485,7 @@ class CpuFreqTest():
                     child_queue)
                 # prepare to cleanly join, close queue
                 result_queue.task_done()
+            logging.info('* joining and closing queues')
             # join and close queue
             result_queue.join()
             result_queue.close()
@@ -512,10 +513,11 @@ class CpuFreqTest():
             pid_list.append(mp_proc.pid)
 
         n_procs = len(mp_proc_list)
-        # get, process queues; len(mp_proc_list) == len(online_cores)
+        # get, process queues
         process_rqueue(n_procs, result_queue)
 
         # cleanup spawned core_test pids
+        logging.info('* joining child processes:')
         for idx, proc in enumerate(mp_proc_list):
             if idx:
                 time.sleep(.1)
@@ -523,7 +525,7 @@ class CpuFreqTest():
             child_return = mp_proc.join()
             if child_return is None:
                 logging.info(
-                    '* PID %s joined parent', pid_list[idx])
+                    '  - PID %s joined parent', pid_list[idx])
             else:
                 # can terminate in reset/cleanup subroutine
                 continue
@@ -688,7 +690,7 @@ class CpuFreqCoreTest(CpuFreqTest):
             """
             logging.info(
                 '* testing: %s ||'
-                'child pid: %i || target freq: %i || work: factorial(%i)',
+                ' target freq: %i || work: fact(%i) || child pid: %i',
                 self.__instance_cpu, freq, workload_n, self.__instance_pid)
 
         def load_observe_map(freq):
@@ -728,7 +730,7 @@ class CpuFreqCoreTest(CpuFreqTest):
             # re-init some attributes after 1st pass
             if idx:
                 # prevent race cond.
-                time.sleep(1)
+                time.sleep(.5)
                 # reset freq list
                 self.__observed_freqs = []
                 # reset workload loop bit
