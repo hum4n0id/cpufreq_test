@@ -687,8 +687,8 @@ class CpuFreqCoreTest(CpuFreqTest):
             logging.
             """
             logging.info(
-                '* testing: %s'
-                ' || target freq: %i || work: factorial(%i) || child pid: %i',
+                '* testing: %s ||'
+                'child pid: %i || target freq: %i || work: factorial(%i)',
                 self.__instance_cpu, freq, workload_n, self.__instance_pid)
 
         def load_observe_map(freq):
