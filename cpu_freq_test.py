@@ -639,19 +639,19 @@ class CpuFreqCoreTest(CpuFreqTest):
     def scale_all_freq(self):
         """ Primary method to scale full range of freqs.
         """
-        def calc_freq_median(freqs):
+        def calc_freq_median(obs_freqs):
             """ Calculate the median value of observed freqs.
             """
-            n_samples = len(freqs)
+            n_samples = len(obs_freqs)
             # floor division req.
             c_index = n_samples // 2
             # odd number of samples in observed_freqs
             if n_samples % 2:
-                freq_median = sorted(freqs)[c_index]
+                freq_median = sorted(obs_freqs)[c_index]
             # even number of samples in observed_freqs
             else:
                 freq_median = sum(
-                    sorted(freqs)[(c_index - 1):(c_index + 1)]) / 2
+                    sorted(obs_freqs)[(c_index - 1):(c_index + 1)]) / 2
             return freq_median
 
         def map_observed_freqs(target_freq):
