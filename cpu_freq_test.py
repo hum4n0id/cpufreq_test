@@ -728,7 +728,7 @@ class CpuFreqCoreTest(CpuFreqTest):
             # re-init some attributes after 1st pass
             if idx:
                 # prevent race cond.
-                time.sleep(.3)
+                time.sleep(1)
                 # reset freq list
                 self.__observed_freqs = []
                 # reset workload loop bit
