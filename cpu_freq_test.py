@@ -181,10 +181,9 @@ class CpuFreqTest():
             with open(abs_path, 'wb') as _:
                 _.write(data_utf)
         except OSError:
+            # change to logging filtered
             raise CpuFreqExec(
                 'ERROR: unable to write file: %s' % abs_path)
-        else:
-            return data
 
     def _get_cpufreq_param(self, parameter):
         """ Get base cpufreq param from online cores.
