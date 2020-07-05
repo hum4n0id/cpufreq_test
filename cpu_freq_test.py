@@ -485,6 +485,7 @@ class CpuFreqTest():
                     child_queue)
                 # prepare to cleanly join, close queue
                 result_queue.task_done()
+            logging.info('----------------------------')
             logging.info('* joining and closing queues')
             # join and close queue
             result_queue.join()
