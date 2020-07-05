@@ -156,7 +156,7 @@ class CpuFreqTest():
         """ Write sysfs/cpufreq file.
         """
         def return_bytes_utf():
-            """ Data type conversion to utf,
+            """ Data type conversion to bytes utf,
             for sysfs writes.
             """
             try:
