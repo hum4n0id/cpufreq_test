@@ -741,7 +741,7 @@ class CpuFreqCoreTest(CpuFreqTest):
 
             # acpi supports full freq table scaling
             if 'acpi-cpufreq' in self.scaling_driver:
-                # write to sysfs
+                # write to sysfs, private method
                 self.__write_cpu(path_set_speed, freq)
                 # facilitate testing
                 load_observe_map(freq)
@@ -817,7 +817,8 @@ def main():
     elif args.gov:
         pprint.pprint(cpu_freq_test.get_governors())
     else:
-        return cpu_freq_test.execute_test()
+        result = cpu_freq_test.execute_test()
+        return result
 
 
 if __name__ == '__main__':
