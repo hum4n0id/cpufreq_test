@@ -496,7 +496,8 @@ class CpuFreqTest():
         # create queue for piping results
         result_queue = multiprocessing.JoinableQueue()
         online_cores = self._get_cores('online')
-        online_cores.sort(reverse=True)
+        # self runs last; aka 'manager-lite'
+        online_cores.append(online_cores.pop(0))
 
         # assign affinity and spawn core_test
         for core in online_cores:
@@ -521,7 +522,7 @@ class CpuFreqTest():
         logging.info('* joining child processes:')
         for idx, proc in enumerate(mp_proc_list):
             if idx:
-                time.sleep(.1)
+                time.sleep(.2)
             # join child processes
             child_return = mp_proc.join()
             if child_return is None:
@@ -733,7 +734,7 @@ class CpuFreqCoreTest(CpuFreqTest):
             # re-init some attributes after 1st pass
             if idx:
                 # prevent race cond.
-                time.sleep(.3)
+                time.sleep(1)
                 # reset freq list
                 self.__observed_freqs = []
                 # reset workload loop bit
