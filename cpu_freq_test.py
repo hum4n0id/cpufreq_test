@@ -594,6 +594,8 @@ class CpuFreqCoreTest(CpuFreqTest):
     def __init__(self, core, pid):
         super().__init__()
         # mangle instance attributes
+        # import private _write_cpu() method
+        self.__write_cpu = self._write_cpu
         self.__instance_core = int(core)  # core under test
         self.__instance_cpu = 'cpu%i' % core  # str cpu ref
         self.__instance_pid = pid  # worker pid for logging output
@@ -731,7 +733,7 @@ class CpuFreqCoreTest(CpuFreqTest):
             # re-init some attributes after 1st pass
             if idx:
                 # prevent race cond.
-                time.sleep(.5)
+                time.sleep(.3)
                 # reset freq list
                 self.__observed_freqs = []
                 # reset workload loop bit
@@ -740,12 +742,12 @@ class CpuFreqCoreTest(CpuFreqTest):
             # acpi supports full freq table scaling
             if 'acpi-cpufreq' in self.scaling_driver:
                 # write to sysfs
-                self._write_cpu(path_set_speed, freq)
+                self.__write_cpu(path_set_speed, freq)
                 # facilitate testing
                 load_observe_map(freq)
             # others support max, min freq scaling
             else:
-                self._write_cpu(path_max_freq, freq)
+                self.__write_cpu(path_max_freq, freq)
                 load_observe_map(freq)
 
 
