@@ -86,6 +86,7 @@ class CpuFreqTest():
                 path_min).rstrip('\n'))
             return scaling_freqs
 
+        # cleaner than cls name
         self.path_root = CpuFreqTest.path_root
         self.__fail_count = 0
         # attributes common to all cores
