@@ -51,7 +51,7 @@ class CpuFreqExec(Exception):
 class CpuFreqTest():
     """ Test cpufreq scaling capabilities.
     """
-    # class attributes / statics
+    # class attributes / constants
     path_root = '/sys/devices/system/cpu'
     # time to stay at frequency under load (sec)
     # more time = more resolution
@@ -67,6 +67,7 @@ class CpuFreqTest():
     min_freq_pct = 90
     # time budget for result_queue to empty (sec)
     rqueue_join_timeout = 5
+    fail_count = 0
 
     def __init__(self):
         """ Instance attributes.
@@ -88,7 +89,6 @@ class CpuFreqTest():
 
         # cleaner than cls name
         self.path_root = CpuFreqTest.path_root
-        self.__fail_count = 0
         # attributes common to all cores
         self.__proc_list = []  # pids for core affinity assignment
         # chainmap object constructor
@@ -243,7 +243,7 @@ class CpuFreqTest():
                 else:
                     new_inner_val.append('Fail')
                     # increment fail bit
-                    self.__fail_count += 1
+                    CpuFreqTest.fail_count += 1
             # append avg freq
             new_inner_val.append(int(inner_val))
             return new_inner_val
@@ -445,9 +445,9 @@ class CpuFreqTest():
         # pretty result output
         pprint.pprint(self._process_results())
 
-        if self.__fail_count:
+        if CpuFreqTest.fail_count:
             print('\n[Test Failed]\n'
-                  '* fail_count =', self.__fail_count)
+                  '* fail_count =', CpuFreqTest.fail_count)
             return 1
 
         print('\n[Test Passed]')
