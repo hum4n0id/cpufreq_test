@@ -272,17 +272,21 @@ class CpuFreqTest():
                     'topology', 'thread_siblings_list')
                 # second core is sibling
                 thread_siblings += self._get_cores(fpath)[1:]
-            # prefer set for binary &
-            to_disable = set(thread_siblings) & set(online_cores)
+            if thread_siblings:
+                to_disable = set(thread_siblings) & set(online_cores)
+                logging.info('  - disabling cores: %s', to_disable)
+            else:
+                to_disable = None
+                logging.info('  - already disabled')
             return to_disable
 
         to_disable = get_thread_siblings()
-        logging.info('  - disabling cores: %s', to_disable)
-        for core in to_disable:
-            fpath = path.join(
-                'cpu%i' % core,
-                'online')
-            self._write_cpu(fpath, 0)
+        if to_disable:
+            for core in to_disable:
+                fpath = path.join(
+                    'cpu%i' % core,
+                    'online')
+                self._write_cpu(fpath, 0)
 
     def get_governors(self):
         """ Return active governors on all cores.
@@ -803,7 +807,8 @@ def parse_args_logging():
     parser_mutex_grp.add_argument(
         '-r', '--reset',
         action='store_true',
-        help='reset cpufreq sysfs (governor, ht, max/min, pstate)')
+        help='reset cpufreq sysfs'
+        ' (governor, ht, max/min, pstate)')
     parser_mutex_grp.add_argument(
         '-g', '--gov',
         action='store_true',
