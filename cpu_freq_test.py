@@ -38,7 +38,6 @@ import math
 import time
 import sys
 import psutil
-# from pudb import set_trace; set_trace()
 
 
 class CpuFreqExec(Exception):
