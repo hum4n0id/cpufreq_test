@@ -288,6 +288,7 @@ class CpuFreqTest():
     def get_governors(self):
         """ Return active governors on all cores.
         """
+        # dev note: nest lvl 0 for -g arg
         governors = self._get_cpufreq_param(
             'scaling_governor')
         return governors
@@ -457,12 +458,12 @@ class CpuFreqTest():
     def spawn_core_test(self):
         """ Spawn concurrent scale testing on all online cores.
         """
-        def run_child(output, affinity):
+        def run_child(result_q, affinity):
             """ Subclass instantiation & constructor for individual
             core.
             """
             proc = psutil.Process()
-            # assign affinity to process
+            # assign affinity for process
             proc.cpu_affinity(affinity)
             # assign value from kwarg affinity to core
             core = int(affinity[0])
@@ -470,9 +471,10 @@ class CpuFreqTest():
             cpu_freq_ctest = CpuFreqCoreTest(core, proc.pid)
             # execute freq scaling
             cpu_freq_ctest.scale_all_freq()
-            freq_map = cpu_freq_ctest.__call__()
-            # map results to core
-            output.put(freq_map)
+            # get results
+            res_freq_map = cpu_freq_ctest.__call__()
+            # place in result_queue
+            result_q.put(res_freq_map)
 
         def process_rqueue(queue_depth, result_queue):
             """ Get and process core_test result_queue.
@@ -494,11 +496,11 @@ class CpuFreqTest():
 
         mp_proc_list = []
         pid_list = []
-        # create queue for piping results
-        result_queue = multiprocessing.JoinableQueue()
         online_cores = self._get_cores('online')
         # self runs last; aka 'manager-lite'
         online_cores.append(online_cores.pop(0))
+        # create queue for piping results
+        result_queue = multiprocessing.JoinableQueue()
 
         # assign affinity and spawn core_test
         for core in online_cores:
@@ -532,7 +534,7 @@ class CpuFreqTest():
             else:
                 # can terminate in reset/cleanup subroutine
                 continue
-        # update attribute to perfrom a 2nd pass terminate
+        # update attribute for a 2nd pass terminate
         self.__proc_list = mp_proc_list
 
 
@@ -597,7 +599,6 @@ class CpuFreqCoreTest(CpuFreqTest):
     def __init__(self, core, pid):
         super().__init__()
         # mangle instance attributes
-        # import private _write_cpu() method
         self.__instance_core = int(core)  # core under test
         self.__instance_cpu = 'cpu%i' % core  # str cpu ref
         self.__instance_pid = pid  # worker pid for logging output
@@ -638,7 +639,7 @@ class CpuFreqCoreTest(CpuFreqTest):
             fpath = path.join(
                 self.__instance_cpu,
                 'cpufreq', 'scaling_cur_freq')
-            freqs = self._read_cpu(
+            freqs = self.__read_cpu(
                 fpath).rstrip('\n').split()[0]
             return int(freqs)
 
@@ -681,7 +682,7 @@ class CpuFreqCoreTest(CpuFreqTest):
         def handle_alarm(*args):
             """ Alarm trigger callback, unload core
             """
-            # args unused; *args present for signal callback
+            # args unused; *args present for signal call
             del args
             # stop workload loop
             self.__stop_scaling = True
