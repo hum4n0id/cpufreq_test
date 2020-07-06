@@ -30,9 +30,10 @@ import collections
 import threading
 import argparse
 import logging
+import pprint
 import random
 import signal
-import pprint
+import copy
 import math
 import time
 import sys
@@ -522,7 +523,7 @@ class CpuFreqTest():
         logging.info('* joining child processes:')
         for idx, proc in enumerate(mp_proc_list):
             if idx:
-                time.sleep(.2)
+                time.sleep(.1)
             # join child processes
             child_return = mp_proc.join()
             if child_return is None:
@@ -575,7 +576,8 @@ class CpuFreqCoreTest(CpuFreqTest):
                 self.timer_running = True
 
         def observe(self):
-            """ Trigger callback to sample frequency.
+            """ Trigger callback to sample frequency. Is called at
+            expiration of time_delta of observe_interval.
             """
             # reset timer_running
             self.timer_running = False
@@ -596,7 +598,6 @@ class CpuFreqCoreTest(CpuFreqTest):
         super().__init__()
         # mangle instance attributes
         # import private _write_cpu() method
-        self.__write_cpu = self._write_cpu
         self.__instance_core = int(core)  # core under test
         self.__instance_cpu = 'cpu%i' % core  # str cpu ref
         self.__instance_pid = pid  # worker pid for logging output
@@ -604,6 +605,9 @@ class CpuFreqCoreTest(CpuFreqTest):
         self.__observed_freqs = []  # recorded freqs
         self.__observed_freqs_dict = {}  # core: recorded freqs
         self.__observed_freqs_rdict = {}  # raw recorded freqs (float)
+        # create private _read/write_cpu() methods
+        self.__read_cpu = copy.deepcopy(self._read_cpu)
+        self.__write_cpu = copy.deepcopy(self._write_cpu)
 
     def __call__(self):
         """ Have subclass return dict '{core: avg_freq}'
@@ -734,7 +738,7 @@ class CpuFreqCoreTest(CpuFreqTest):
             # re-init some attributes after 1st pass
             if idx:
                 # prevent race cond.
-                time.sleep(1)
+                time.sleep(.5)
                 # reset freq list
                 self.__observed_freqs = []
                 # reset workload loop bit
@@ -742,12 +746,14 @@ class CpuFreqCoreTest(CpuFreqTest):
 
             # acpi supports full freq table scaling
             if 'acpi-cpufreq' in self.scaling_driver:
+                time.sleep(.1)
                 # write to sysfs, private method
                 self.__write_cpu(path_set_speed, freq)
                 # facilitate testing
                 load_observe_map(freq)
             # others support max, min freq scaling
             else:
+                time.sleep(.1)
                 self.__write_cpu(path_max_freq, freq)
                 load_observe_map(freq)
 
@@ -755,11 +761,11 @@ class CpuFreqCoreTest(CpuFreqTest):
 def parse_args_logging():
     """ Ingest arguments and init logging.
     """
+    # levels: CRITICAL, ERROR, WARNING, INFO, DEBUG, NOTSET
+    # lvlnum: 50      , 40   , 30     , 20  , 10   , 0
     def init_logging(args):
         """ Parse and set logging levels, start logging.
         """
-        # levels: CRITICAL, ERROR, WARNING, INFO, DEBUG, NOTSET
-        # lvlnum: 50      , 40   , 30     , 20  , 10   , 0
         # stdout for argparsed logging lvls
         stdout_handler = logging.StreamHandler(sys.stdout)
         stdout_handler.setLevel(args.log_level)
