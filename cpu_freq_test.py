@@ -77,10 +77,10 @@ class CpuFreqTest(object):
             min_freq cpufreq files.
             """
             scaling_freqs = []
-            path_max = path.join(
-                'cpu0', 'cpufreq', 'scaling_max_freq')
-            path_min = path.join(
-                'cpu0', 'cpufreq', 'scaling_min_freq')
+            path_max = path.join('cpu0', 'cpufreq',
+                                 'scaling_max_freq')
+            path_min = path.join('cpu0', 'cpufreq',
+                                 'scaling_min_freq')
             scaling_freqs.append(
                 self._read_cpu(path_max).rstrip('\n'))
             scaling_freqs.append(
@@ -95,16 +95,16 @@ class CpuFreqTest(object):
         self.freq_chainmap = collections.ChainMap()
 
         # cpufreq driver
-        path_scaling_driver = path.join(
-            'cpu0', 'cpufreq', 'scaling_driver')
+        path_scaling_driver = path.join('cpu0', 'cpufreq',
+                                        'scaling_driver')
         self.scaling_driver = self._read_cpu(
             path_scaling_driver).rstrip('\n')
 
         # available governors
-        path_scaling_gvrnrs = path.join(
-            'cpu0', 'cpufreq', 'scaling_available_governors')
-        path_startup_governor = path.join(
-            'cpu0', 'cpufreq', 'scaling_governor')
+        path_scaling_gvrnrs = path.join('cpu0', 'cpufreq',
+                                        'scaling_available_governors')
+        path_startup_governor = path.join('cpu0', 'cpufreq',
+                                          'scaling_governor')
         self.scaling_gvrnrs = self._read_cpu(
             path_scaling_gvrnrs).rstrip('\n').split()
         self.startup_governor = self._read_cpu(
@@ -112,9 +112,8 @@ class CpuFreqTest(object):
 
         # ensure the correct freq table is populated
         if 'acpi-cpufreq' in self.scaling_driver:
-            path_scaling_freqs = path.join(
-                'cpu0', 'cpufreq',
-                'scaling_available_frequencies')
+            path_scaling_freqs = path.join('cpu0', 'cpufreq',
+                                           'scaling_available_frequencies')
             scaling_freqs = self._read_cpu(
                 path_scaling_freqs).rstrip('\n').split()
             # cast freqs to int
@@ -127,8 +126,7 @@ class CpuFreqTest(object):
             # setup path and status for intel pstate directives
             if 'intel_' in self.scaling_driver:
                 # /sys/devices/system/cpu/intel_pstate/status
-                self.path_ipst_status = path.join(
-                    'intel_pstate', 'status')
+                self.path_ipst_status = path.join('intel_pstate', 'status')
                 self.startup_ipst_status = self._read_cpu(
                     self.path_ipst_status).rstrip('\n')
             # use max, min freq for scaling table
@@ -141,8 +139,7 @@ class CpuFreqTest(object):
     def _read_cpu(self, fpath):
         """ Read sysfs/cpufreq file.
         """
-        abs_path = path.join(
-            self.path_root, fpath)
+        abs_path = path.join(self.path_root, fpath)
         # open abs_path in binary mode, read
         try:
             with open(abs_path, 'rb') as _:
@@ -174,8 +171,7 @@ class CpuFreqTest(object):
             # do not convert bytes()
             data_utf = data
 
-        abs_path = path.join(
-            self.path_root, fpath)
+        abs_path = path.join(self.path_root, fpath)
         # write utf bytes to cpufreq sysfs
         try:
             with open(abs_path, 'wb') as _:
@@ -192,9 +188,8 @@ class CpuFreqTest(object):
         data = {}
         online_cores = self._get_cores('online')
         for core in online_cores:
-            fpath = path.join(
-                'cpu%i' % core,
-                'cpufreq', parameter)
+            fpath = path.join('cpu%i' % core,
+                              'cpufreq', parameter)
             data[int(core)] = self._read_cpu(
                 fpath).rstrip('\n').split()[0]
         return data
@@ -219,8 +214,7 @@ class CpuFreqTest(object):
                     core_list += [int(first_last[0])]
             return core_list
 
-        core_rng = self._read_cpu(
-            fpath).strip('\n').strip()
+        core_rng = self._read_cpu(fpath).strip('\n').strip()
         core_list = list_core_rng(core_rng)
         return core_list
 
@@ -251,8 +245,10 @@ class CpuFreqTest(object):
         freq_result_map = {
             outer_key: {
                 inner_key: comp_freq_dict(inner_key, inner_val)
-                for inner_key, inner_val in outer_val.items()}
-            for outer_key, outer_val in self.freq_chainmap.items()}
+                for inner_key, inner_val in outer_val.items()
+            }
+            for outer_key, outer_val in self.freq_chainmap.items()
+        }
 
         return freq_result_map
 
@@ -266,9 +262,8 @@ class CpuFreqTest(object):
             thread_siblings = []
             online_cores = self._get_cores('online')
             for core in online_cores:
-                fpath = path.join(
-                    'cpu%i' % core,
-                    'topology', 'thread_siblings_list')
+                fpath = path.join('cpu%i' % core, 'topology',
+                                  'thread_siblings_list')
                 # second core is sibling
                 thread_siblings += self._get_cores(fpath)[1:]
             if thread_siblings:
@@ -284,17 +279,14 @@ class CpuFreqTest(object):
         to_disable = get_thread_siblings()
         if to_disable:
             for core in to_disable:
-                fpath = path.join(
-                    'cpu%i' % core,
-                    'online')
+                fpath = path.join('cpu%i' % core, 'online')
                 self._write_cpu(fpath, 0)
 
     def get_governors(self):
         """ Return active governors on all cores.
         """
         # dev note: nest lvl 0 for -g arg
-        governors = self._get_cpufreq_param(
-            'scaling_governor')
+        governors = self._get_cpufreq_param('scaling_governor')
         return governors
 
     def set_governors(self, governor):
@@ -304,9 +296,8 @@ class CpuFreqTest(object):
         logging.info('  - setting governor: %s', governor)
         online_cores = self._get_cores('online')
         for core in online_cores:
-            fpath = path.join(
-                'cpu%i' % core,
-                'cpufreq', 'scaling_governor')
+            fpath = path.join('cpu%i' % core, 'cpufreq',
+                              'scaling_governor')
             self._write_cpu(fpath, governor)
 
     def reset(self):
@@ -340,9 +331,8 @@ class CpuFreqTest(object):
             logging.info('* enabling thread siblings/hyperthreading:')
             logging.info('  - enabling cores: %s', to_enable)
             for core in to_enable:
-                fpath = path.join(
-                    'cpu%i' % core,
-                    'online')
+                fpath = path.join('cpu%i' % core,
+                                  'online')
                 self._write_cpu(fpath, 1)
 
         def set_max_min():
@@ -350,12 +340,10 @@ class CpuFreqTest(object):
             """
             present_cores = self._get_cores('present')
             for core in present_cores:
-                path_max = path.join(
-                    'cpu%i' % core,
-                    'cpufreq', 'scaling_max_freq')
-                path_min = path.join(
-                    'cpu%i' % core,
-                    'cpufreq', 'scaling_min_freq')
+                path_max = path.join('cpu%i' % core,
+                                     'cpufreq', 'scaling_max_freq')
+                path_min = path.join('cpu%i' % core,
+                                     'cpufreq', 'scaling_min_freq')
                 # reset max freq
                 self._write_cpu(
                     path_max, self.startup_max_freq)
@@ -642,15 +630,12 @@ class CpuFreqCoreTest(CpuFreqTest):
         def get_cur_freq():
             """ Get current frequency.
             """
-            fpath = path.join(
-                self.__instance_cpu,
-                'cpufreq', 'scaling_cur_freq')
-            freqs = self.__read_cpu(
-                fpath).rstrip('\n').split()[0]
+            fpath = path.join(self.__instance_cpu, 'cpufreq',
+                              'scaling_cur_freq')
+            freqs = self.__read_cpu(fpath).rstrip('\n').split()[0]
             return int(freqs)
 
-        self.__observed_freqs.append(
-            get_cur_freq())
+        self.__observed_freqs.append(get_cur_freq())
         # matrix mode
         logging.debug(self.__observed_freqs)
 
@@ -703,10 +688,10 @@ class CpuFreqCoreTest(CpuFreqTest):
             """ Method to provide feedback for debug/verbose
             logging.
             """
-            logging.info(
-                '* testing: %s ||'
-                ' target freq: %i || work: fact(%i) || child pid: %i',
-                self.__instance_cpu, freq, workload_n, self.__instance_pid)
+            logging.info('* testing: %s || target freq: %i ||'
+                         ' work: fact(%i) || child pid: %i',
+                         self.__instance_cpu, freq,
+                         workload_n, self.__instance_pid)
 
         def load_observe_map(freq):
             """ Proxy fn to scale core to freq.
@@ -733,12 +718,10 @@ class CpuFreqCoreTest(CpuFreqTest):
             map_observed_freqs(freq)
 
         # set paths relative to core
-        path_set_speed = path.join(
-            self.__instance_cpu,
-            'cpufreq', 'scaling_setspeed')
-        path_max_freq = path.join(
-            self.__instance_cpu, 'cpufreq',
-            'scaling_max_freq')
+        path_set_speed = path.join(self.__instance_cpu, 'cpufreq',
+                                   'scaling_setspeed')
+        path_max_freq = path.join(self.__instance_cpu, 'cpufreq',
+                                  'scaling_max_freq')
 
         # iterate over supported frequency scaling table
         for idx, freq in enumerate(self.scaling_freqs):
