@@ -674,7 +674,7 @@ class CpuFreqCoreTest(CpuFreqTest):
             """ Alarm trigger callback, unload core
             """
             # *args for signal() callback
-            del args  # args unused for cb event
+            del args  # args unused
             # stop workload loop
             self.__stop_scaling = True
 
@@ -728,7 +728,7 @@ class CpuFreqCoreTest(CpuFreqTest):
             # re-init some attributes after 1st pass
             if idx:
                 # prevent race cond.
-                time.sleep(.5)
+                time.sleep(.3)
                 # reset freq list
                 self.__observed_freqs = []
                 # reset workload loop bit
