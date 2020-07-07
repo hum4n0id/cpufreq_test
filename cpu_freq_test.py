@@ -48,10 +48,10 @@ class CpuFreqExec(Exception):
         logging.error(message, exc_info=True)
 
 
-class CpuFreqTest(object):
+class CpuFreqTest():
     """ Test cpufreq scaling capabilities.
     """
-    # class attributes / statics
+    # class attributes
     path_root = '/sys/devices/system/cpu'
     # time to stay at frequency under load (sec)
     # more time = more resolution
@@ -535,7 +535,7 @@ class CpuFreqTest(object):
 class CpuFreqCoreTest(CpuFreqTest):
     """ Subclass to facilitate concurrent frequency scaling.
     """
-    class ObserveFreq(object):
+    class ObserveFreq():
         """ Class for instantiating observation thread.
         Non-blocking and locked to system time to prevent
         exponentional timer drift as frequency scaling occurs.
