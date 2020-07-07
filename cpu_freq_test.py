@@ -48,10 +48,10 @@ class CpuFreqExec(Exception):
         logging.error(message, exc_info=True)
 
 
-class CpuFreqTest():
+class CpuFreqTest(object):
     """ Test cpufreq scaling capabilities.
     """
-    # class attributes / constants
+    # class attributes / statics
     path_root = '/sys/devices/system/cpu'
     # time to stay at frequency under load (sec)
     # more time = more resolution
@@ -81,16 +81,16 @@ class CpuFreqTest():
                 'cpu0', 'cpufreq', 'scaling_max_freq')
             path_min = path.join(
                 'cpu0', 'cpufreq', 'scaling_min_freq')
-            scaling_freqs.append(self._read_cpu(
-                path_max).rstrip('\n'))
-            scaling_freqs.append(self._read_cpu(
-                path_min).rstrip('\n'))
+            scaling_freqs.append(
+                self._read_cpu(path_max).rstrip('\n'))
+            scaling_freqs.append(
+                self._read_cpu(path_min).rstrip('\n'))
             return scaling_freqs
 
         # cleaner than cls name
         self.path_root = CpuFreqTest.path_root
         # attributes common to all cores
-        self.__proc_list = []  # pids for core affinity assignment
+        self.__proc_list = []  # track spawned processes
         # chainmap object constructor
         self.freq_chainmap = collections.ChainMap()
 
@@ -166,8 +166,7 @@ class CpuFreqTest():
             except (AttributeError, TypeError):
                 # int, float type
                 data_enc = str(data).encode()
-            data_utf = bytes(data_enc)
-            return data_utf
+            return bytes(data_enc)
 
         if not isinstance(data, bytes):
             data_utf = return_bytes_utf()
@@ -274,10 +273,12 @@ class CpuFreqTest():
                 thread_siblings += self._get_cores(fpath)[1:]
             if thread_siblings:
                 to_disable = set(thread_siblings) & set(online_cores)
-                logging.info('  - disabling cores: %s', to_disable)
+                logging.info(
+                    '* disabling thread siblings (hyperthreading):')
+                logging.info(
+                    '  - disabling cores: %s', to_disable)
             else:
                 to_disable = None
-                logging.info('  - already disabled')
             return to_disable
 
         to_disable = get_thread_siblings()
@@ -317,9 +318,12 @@ class CpuFreqTest():
             """
             self._write_cpu(
                 self.path_ipst_status, 'off')
-            ipst_status = self._write_cpu(
+            # wait 300ms
+            time.sleep(.3)
+            logging.info(
+                '  - setting mode: %s', self.startup_ipst_status)
+            self._write_cpu(
                 self.path_ipst_status, self.startup_ipst_status)
-            logging.info('  - setting mode: %s', ipst_status)
 
         def enable_off_cores():
             """ Enable all present and offline cores.
@@ -391,7 +395,6 @@ class CpuFreqTest():
         print('---------------------\n'
               '| CpuFreqTest Begin |\n'
               '---------------------')
-        logging.info('* disabling thread siblings (hyperthreading):')
         self.disable_thread_siblings()
 
         # if intel, reset and start best available driver (passive pref.)
@@ -461,7 +464,7 @@ class CpuFreqTest():
     def spawn_core_test(self):
         """ Spawn concurrent scale testing on all online cores.
         """
-        def run_child(result_q, affinity):
+        def run_child(result_queue, affinity):
             """ Subclass instantiation & constructor for individual
             core.
             """
@@ -477,7 +480,7 @@ class CpuFreqTest():
             # get results
             res_freq_map = cpu_freq_ctest.__call__()
             # place in result_queue
-            result_q.put(res_freq_map)
+            result_queue.put(res_freq_map)
 
         def process_rqueue(queue_depth, result_queue):
             """ Get and process core_test result_queue.
@@ -497,8 +500,8 @@ class CpuFreqTest():
             result_queue.join()
             result_queue.close()
 
-        mp_proc_list = []
-        pid_list = []
+        mp_proc_list = []  # track spawned multiproc processes
+        pid_list = []  # track spawned multiproc pids
         online_cores = self._get_cores('online')
         # self runs last; aka 'manager-lite'
         online_cores.append(online_cores.pop(0))
@@ -526,7 +529,7 @@ class CpuFreqTest():
 
         # cleanup spawned core_test pids
         logging.info('* joining child processes:')
-        for idx, proc in enumerate(mp_proc_list):
+        for idx, mp_proc in enumerate(mp_proc_list):
             if idx:
                 time.sleep(.1)
             # join child processes
@@ -544,7 +547,7 @@ class CpuFreqTest():
 class CpuFreqCoreTest(CpuFreqTest):
     """ Subclass to facilitate concurrent frequency scaling.
     """
-    class ObserveFreq:
+    class ObserveFreq(object):
         """ Class for instantiating observation thread.
         Non-blocking and locked to system time to prevent
         exponentional timer drift as frequency scaling occurs.
@@ -685,8 +688,8 @@ class CpuFreqCoreTest(CpuFreqTest):
         def handle_alarm(*args):
             """ Alarm trigger callback, unload core
             """
-            # args unused; *args present for signal call
-            del args
+            # *args for signal() callback
+            del args  # args unused for cb event
             # stop workload loop
             self.__stop_scaling = True
 
@@ -829,8 +832,7 @@ def main():
     elif args.gov:
         pprint.pprint(cpu_freq_test.get_governors())
     else:
-        result = cpu_freq_test.execute_test()
-        return result
+        return cpu_freq_test.execute_test()
 
 
 if __name__ == '__main__':
