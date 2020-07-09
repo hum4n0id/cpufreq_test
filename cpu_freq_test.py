@@ -550,6 +550,7 @@ class CpuFreqCoreTest(CpuFreqTest):
             self.thread_timer = None
             self.timer_running = False
             self.next_call = time.time()
+            # start event loop
             self.start_timer()
 
         def start_timer(self):
