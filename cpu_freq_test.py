@@ -19,9 +19,6 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 * test and validate sut cpu scaling capabilities
-
-todo optional (nice to have):
-* check if workload needs to scale with processor power
 """
 
 from os import path
@@ -44,17 +41,19 @@ class CpuFreqExec(Exception):
     """ Exception handling (stderr).
     """
     def __init__(self, message):
-        super().__init__(message)
-        logging.error(message, exc_info=True)
+        super().__init__()
+        logging.error(message)
+        if 'scaling_driver' in message:
+            logging.error('Fatal: CpuFreq scaling unsupported.')
+        sys.exit(1)
 
 
-class CpuFreqTest():
+class CpuFreqTest:
     """ Test cpufreq scaling capabilities.
     """
-    # class attributes
+    # class attributes / statics
     path_root = '/sys/devices/system/cpu'
     # time to stay at frequency under load (sec)
-    # more time = more resolution
     # should be gt observe_interval
     scale_duration = 15
     # frequency sampling interval (sec)
@@ -66,7 +65,7 @@ class CpuFreqTest():
     max_freq_pct = 110
     min_freq_pct = 90
     # time budget for result_queue to empty (sec)
-    rqueue_join_timeout = 5
+    # rqueue_join_timeout = 5
     fail_count = 0
 
     def __init__(self):
@@ -211,7 +210,8 @@ class CpuFreqTest():
                             int(first_last[0]),
                             int(first_last[1]) + 1))
                 else:
-                    core_list += [int(first_last[0])]
+                    core_list += [
+                        int(first_last[0])]
             return core_list
 
         core_rng = self._read_cpu(fpath).strip('\n').strip()
@@ -249,7 +249,6 @@ class CpuFreqTest():
             }
             for outer_key, outer_val in self.freq_chainmap.items()
         }
-
         return freq_result_map
 
     def disable_thread_siblings(self):
@@ -535,7 +534,7 @@ class CpuFreqTest():
 class CpuFreqCoreTest(CpuFreqTest):
     """ Subclass to facilitate concurrent frequency scaling.
     """
-    class ObserveFreq():
+    class ObserveFreq:
         """ Class for instantiating observation thread.
         Non-blocking and locked to system time to prevent
         exponentional timer drift as frequency scaling occurs.
@@ -600,7 +599,7 @@ class CpuFreqCoreTest(CpuFreqTest):
         self.__observed_freqs = []  # recorded freqs
         self.__observed_freqs_dict = {}  # core: recorded freqs
         self.__observed_freqs_rdict = {}  # raw recorded freqs (float)
-        # create private _read/write_cpu() methods
+        # instantiate private _read/write_cpu() methods
         self.__read_cpu = copy.deepcopy(self._read_cpu)
         self.__write_cpu = copy.deepcopy(self._write_cpu)
 
@@ -718,34 +717,28 @@ class CpuFreqCoreTest(CpuFreqTest):
             map_observed_freqs(freq)
 
         # set paths relative to core
-        path_set_speed = path.join(self.__instance_cpu, 'cpufreq',
-                                   'scaling_setspeed')
-        path_max_freq = path.join(self.__instance_cpu, 'cpufreq',
-                                  'scaling_max_freq')
+        # acpi supports full freq table scaling
+        if 'acpi-cpufreq' in self.scaling_driver:
+            fpath = path.join(self.__instance_cpu, 'cpufreq',
+                              'scaling_setspeed')
+        # others support max, min freq scaling
+        else:
+            fpath = path.join(self.__instance_cpu, 'cpufreq',
+                              'scaling_max_freq')
 
         # iterate over supported frequency scaling table
         for idx, freq in enumerate(self.scaling_freqs):
             # re-init some attributes after 1st pass
             if idx:
-                # prevent race cond.
-                time.sleep(.3)
                 # reset freq list
                 self.__observed_freqs = []
                 # reset workload loop bit
                 self.__stop_scaling = False
 
-            # acpi supports full freq table scaling
-            if 'acpi-cpufreq' in self.scaling_driver:
-                time.sleep(.1)
-                # write to sysfs, private method
-                self.__write_cpu(path_set_speed, freq)
-                # facilitate testing
-                load_observe_map(freq)
-            # others support max, min freq scaling
-            else:
-                time.sleep(.1)
-                self.__write_cpu(path_max_freq, freq)
-                load_observe_map(freq)
+            # prevent race cond.
+            time.sleep(.1)
+            self.__write_cpu(fpath, freq)
+            load_observe_map(freq)
 
 
 def parse_args_logging():
