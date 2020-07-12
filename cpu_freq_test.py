@@ -602,7 +602,7 @@ class CpuFreqCoreTest(CpuFreqTest):
         self.__observed_freqs = []  # recorded freqs
         self.__observed_freqs_dict = {}  # core: recorded freqs
         self.__observed_freqs_rdict = {}  # raw recorded freqs (float)
-        # instantiate private _read/write_cpu() methods
+        # create private _read/write_cpu() methods
         self.__read_cpu = copy.deepcopy(self._read_cpu)
         self.__write_cpu = copy.deepcopy(self._write_cpu)
 
