@@ -44,7 +44,7 @@ class CpuFreqExec(Exception):
         super().__init__()
         logging.error(message)
         if 'scaling_driver' in message:
-            logging.error('Fatal: CpuFreq scaling unsupported.')
+            logging.error('FATAL: cpufreq scaling unsupported')
         sys.exit(1)
 
 
@@ -451,17 +451,17 @@ class CpuFreqTest:
     def spawn_core_test(self):
         """ Spawn concurrent scale testing on all online cores.
         """
-        def run_child(result_queue, affinity):
+        def run_worker_process(result_queue, affinity):
             """ Subclass instantiation & constructor for individual
             core.
             """
-            proc = psutil.Process()
-            # assign affinity for process
-            proc.cpu_affinity(affinity)
-            # assign value from kwarg affinity to core
-            core = int(affinity[0])
+            # use psutil within mp.process
+            worker = psutil.Process()
+            # assign affinity, pin to core
+            worker.cpu_affinity(affinity)
             # intantiate core_test
-            cpu_freq_ctest = CpuFreqCoreTest(core, proc.pid)
+            cpu_freq_ctest = CpuFreqCoreTest(
+                affinity[0], worker.pid)
             # execute freq scaling
             cpu_freq_ctest.scale_all_freq()
             # get results
@@ -475,19 +475,21 @@ class CpuFreqTest:
             # get queued core_test results
             for _ in range(queue_depth):
                 # pipe results from core_test
-                child_queue = result_queue.get()
+                worker_queue = result_queue.get()
                 # append to chainmap object
                 self.freq_chainmap = self.freq_chainmap.new_child(
-                    child_queue)
-                # prepare to cleanly join, close queue
+                    worker_queue)
+                # signal processing complete
                 result_queue.task_done()
             logging.info('----------------------------')
             logging.info('* joining and closing queues')
             # join and close queue
-            result_queue.join()
-            result_queue.close()
+            try:
+                result_queue.join()
+            finally:
+                result_queue.close()
 
-        mp_proc_list = []  # track spawned multiproc processes
+        worker_list = []  # track spawned multiproc processes
         pid_list = []  # track spawned multiproc pids
         online_cores = self._get_cores('online')
         # self runs last; aka 'manager-lite'
@@ -497,38 +499,38 @@ class CpuFreqTest:
 
         # assign affinity and spawn core_test
         for core in online_cores:
-            affinity = [core]
+            affinity = [int(core)]
             affinity_dict = dict(
                 affinity=affinity)
-            mp_proc = multiprocessing.Process(
-                target=run_child,
+            worker = multiprocessing.Process(
+                target=run_worker_process,
                 args=(result_queue,),
                 kwargs=affinity_dict)
             # start core_test
-            mp_proc.start()
-            mp_proc_list.append(mp_proc)
+            worker.start()
+            worker_list.append(worker)
             # for logging/output
-            pid_list.append(mp_proc.pid)
+            pid_list.append(worker.pid)
 
-        n_procs = len(mp_proc_list)
-        # get, process queues
-        process_rqueue(n_procs, result_queue)
+        # pass work_list len; get, process queues
+        process_rqueue(
+            len(worker_list), result_queue)
 
-        # cleanup spawned core_test pids
-        logging.info('* joining child processes:')
-        for idx, mp_proc in enumerate(mp_proc_list):
+        # cleanup core_test pids
+        logging.info('* joining worker processes:')
+        for idx, worker in enumerate(worker_list):
             if idx:
                 time.sleep(.1)
-            # join child processes
-            child_return = mp_proc.join()
-            if child_return is None:
+            # join worker processes
+            worker_return = worker.join()
+            if worker_return is None:
                 logging.info(
                     '  - PID %s joined parent', pid_list[idx])
             else:
-                # can terminate in reset/cleanup subroutine
+                # can cleanup in reset subroutine
                 continue
         # update attribute for a 2nd pass terminate
-        self.__proc_list = mp_proc_list
+        self.__proc_list = worker_list
 
 
 class CpuFreqCoreTest(CpuFreqTest):
@@ -750,21 +752,30 @@ def parse_args_logging():
     def init_logging(args):
         """ Parse and set logging levels, start logging.
         """
+        # logging optimizations
+        logging._srcfile = None
+        # "%(processName)s prefix
+        logging.logMultiprocessing = False
+        # "%(process)d" prefix
+        logging.logProcesses = False
+        # "%(thread)d" & "%(threadName)s" prefixes
+        logging.logThreads = False
+
         # stdout for argparsed logging lvls
         stdout_handler = logging.StreamHandler(sys.stdout)
         stdout_handler.setLevel(args.log_level)
-        # stderr for exceptions
+        # stderr for exceptions, consumed
         stderr_handler = logging.StreamHandler(sys.stderr)
         stderr_handler.setLevel(logging.ERROR)
 
-        # setup base/top-lvl logger
-        base_logging = logging.getLogger()
-        # set base logging level to pipe StreamHandler() thru
-        base_logging.setLevel(logging.NOTSET)
+        # setup base/root logger
+        root_logger = logging.getLogger()
+        # set root logging level
+        root_logger.setLevel(logging.NOTSET)
 
-        # start logging
-        base_logging.addHandler(stdout_handler)
-        base_logging.addHandler(stderr_handler)
+        # add handlers for out, err
+        root_logger.addHandler(stdout_handler)
+        root_logger.addHandler(stderr_handler)
 
     parser = argparse.ArgumentParser()
     # only allow one arg
