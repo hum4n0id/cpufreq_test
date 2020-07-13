@@ -145,7 +145,7 @@ class CpuFreqTest:
                 data = _.read().decode('utf-8')
         except OSError:
             raise CpuFreqExec(
-                'ERROR: unable to read file: %s' % abs_path)
+                'Unable to read file: %s' % abs_path)
         else:
             return data
 
@@ -178,7 +178,7 @@ class CpuFreqTest:
         except OSError:
             # change to logging filtered
             raise CpuFreqExec(
-                'ERROR: unable to write file: %s' % abs_path)
+                'Unable to write file: %s' % abs_path)
 
     def _get_cpufreq_param(self, parameter):
         """ Get base cpufreq param from online cores.
@@ -455,7 +455,6 @@ class CpuFreqTest:
             """ Subclass instantiation & constructor for individual
             core.
             """
-            # use psutil within mp.process
             worker = psutil.Process()
             # assign affinity, pin to core
             worker.cpu_affinity(affinity)
@@ -500,12 +499,10 @@ class CpuFreqTest:
         # assign affinity and spawn core_test
         for core in online_cores:
             affinity = [int(core)]
-            affinity_dict = dict(
-                affinity=affinity)
-            worker = multiprocessing.Process(
-                target=run_worker_process,
-                args=(result_queue,),
-                kwargs=affinity_dict)
+            affinity_dict = dict(affinity=affinity)
+            worker = multiprocessing.Process(target=run_worker_process,
+                                             args=(result_queue,),
+                                             kwargs=affinity_dict)
             # start core_test
             worker.start()
             worker_list.append(worker)
@@ -610,8 +607,9 @@ class CpuFreqCoreTest(CpuFreqTest):
         """ Have subclass return dict '{core: avg_freq}'
         when called.
         """
-        freq_map = (
-            {self.__instance_core: self.__observed_freqs_dict})
+        freq_map = {
+            self.__instance_core: self.__observed_freqs_dict
+        }
         return freq_map
 
     @property
@@ -753,7 +751,7 @@ def parse_args_logging():
         """ Parse and set logging levels, start logging.
         """
         # logging optimizations
-        logging._srcfile = None
+        logging._srcfile = None  # pylint: disable=protected-access
         # "%(processName)s prefix
         logging.logMultiprocessing = False
         # "%(process)d" prefix
@@ -761,18 +759,20 @@ def parse_args_logging():
         # "%(thread)d" & "%(threadName)s" prefixes
         logging.logThreads = False
 
+        # stderr for exceptions, consumed (need to verify)
+        stderr_format = logging.Formatter(
+            '%(levelname)s: %(message)s')
+        stderr_handler = logging.StreamHandler(sys.stderr)
+        stderr_handler.setLevel(logging.ERROR)
+        stderr_handler.setFormatter(stderr_format)
         # stdout for argparsed logging lvls
         stdout_handler = logging.StreamHandler(sys.stdout)
         stdout_handler.setLevel(args.log_level)
-        # stderr for exceptions, consumed
-        stderr_handler = logging.StreamHandler(sys.stderr)
-        stderr_handler.setLevel(logging.ERROR)
 
         # setup base/root logger
         root_logger = logging.getLogger()
         # set root logging level
         root_logger.setLevel(logging.NOTSET)
-
         # add handlers for out, err
         root_logger.addHandler(stdout_handler)
         root_logger.addHandler(stderr_handler)
