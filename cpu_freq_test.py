@@ -10,7 +10,7 @@ This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License version 3,
 as published by the Free Software Foundation.
 
-This program is distributed in the hope that it will be useful,
+This program is distributed i nn the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 GNU General Public License for more details.
@@ -491,8 +491,6 @@ class CpuFreqTest:
         worker_list = []  # track spawned multiproc processes
         pid_list = []  # track spawned multiproc pids
         online_cores = self._get_cores('online')
-        # self runs last; aka 'manager-lite'
-        online_cores.append(online_cores.pop(0))
         # create queue for piping results
         result_queue = multiprocessing.JoinableQueue()
 
@@ -599,6 +597,7 @@ class CpuFreqCoreTest(CpuFreqTest):
         self.__observed_freqs = []  # recorded freqs
         self.__observed_freqs_dict = {}  # core: recorded freqs
         self.__observed_freqs_rdict = {}  # raw recorded freqs (float)
+        # enable concurrent method access
         # create private _read/write_cpu() methods
         self.__read_cpu = copy.deepcopy(self._read_cpu)
         self.__write_cpu = copy.deepcopy(self._write_cpu)
@@ -736,7 +735,6 @@ class CpuFreqCoreTest(CpuFreqTest):
                 # reset workload loop bit
                 self.__stop_scaling = False
 
-            # prevent race cond.
             time.sleep(.1)
             self.__write_cpu(fpath, freq)
             load_observe_map(freq)
@@ -759,15 +757,16 @@ def parse_args_logging():
         # "%(thread)d" & "%(threadName)s" prefixes
         logging.logThreads = False
 
-        # stderr for exceptions, consumed (need to verify)
-        stderr_format = logging.Formatter(
+        # log to stdout for argparsed logging lvls
+        stdout_handler = logging.StreamHandler(sys.stdout)
+        stdout_handler.setLevel(args.log_level)
+
+        # log to stderr for exceptions, consumed (need to verify)
+        stderr_formatter = logging.Formatter(
             '%(levelname)s: %(message)s')
         stderr_handler = logging.StreamHandler(sys.stderr)
         stderr_handler.setLevel(logging.ERROR)
-        stderr_handler.setFormatter(stderr_format)
-        # stdout for argparsed logging lvls
-        stdout_handler = logging.StreamHandler(sys.stdout)
-        stdout_handler.setLevel(args.log_level)
+        stderr_handler.setFormatter(stderr_formatter)
 
         # setup base/root logger
         root_logger = logging.getLogger()
@@ -777,6 +776,7 @@ def parse_args_logging():
         root_logger.addHandler(stdout_handler)
         root_logger.addHandler(stderr_handler)
 
+    # instantiate argparse
     parser = argparse.ArgumentParser()
     # only allow one arg
     parser_mutex_grp = parser.add_mutually_exclusive_group()
@@ -805,7 +805,6 @@ def parse_args_logging():
         action='store_true',
         help='get active governor (global/all cpu)')
     args = parser.parse_args()
-    # begin logging
     init_logging(args)
     return args
 
