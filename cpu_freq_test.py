@@ -539,7 +539,6 @@ class CpuFreqCoreTest(CpuFreqTest):
         Non-blocking and locked to system time to prevent
         linear timer drift as frequency scaling occurs.
         """
-        # as we may instantiate many instances
         __slots__ = ('interval',
                      'callback',
                      'thread_timer',
