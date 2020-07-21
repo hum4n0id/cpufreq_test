@@ -17,7 +17,7 @@
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-"""Test and validate SUT CPU scaling capabilities."""
+"""Test and validate SUT CPUFreq scaling capabilities."""
 
 
 from os import path
