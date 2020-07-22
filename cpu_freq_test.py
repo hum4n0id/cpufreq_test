@@ -202,7 +202,7 @@ class CpuFreqTest:
             new_inner_val.append(int(inner_val))
             return new_inner_val
 
-        # create master result table with dict comp.
+        # create master result table with dict comprehension
         freq_result_map = {
             outer_key: {
                 inner_key: comp_freq_dict(inner_key, inner_val)
@@ -372,10 +372,10 @@ class CpuFreqTest:
         self.reset()
 
         # facilitate house cleaning
-        # terminate dangling processes post .join()
         if self.__proc_list:
             logging.info('* terminating dangling pids')
             for proc in self.__proc_list:
+                # terminate dangling processes
                 proc.terminate()
         # prove that we are single-threaded again
         logging.info('* active threads: %i\n', threading.active_count())
