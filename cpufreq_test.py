@@ -42,8 +42,7 @@ class CpuFreqTestError(Exception):
         super().__init__()
         if 'scaling_driver' in message:
             logging.error(
-                '%s\n## Fatal: scaling via cpufeq unsupported ##',
-                message)
+                '%s\n## Fatal: scaling via cpufeq unsupported ##')
         # exempt systems unable to change intel_pstate driver mode
         elif 'intel_pstate/status' in message:
             pass
@@ -84,7 +83,11 @@ class CpuFreqTest:
         self.__proc_list = []  # track spawned processes
         # catalog known cpufreq driver types
         # used to determine logic flow control
-        self.driver_types = ['-cpufreq', 'cpufreq-']
+        self.driver_types = (
+            '-cpufreq',
+            'cpufreq-',
+            'arm-big-little'
+        )
         # chainmap object for dict of dicts
         self.freq_chainmap = collections.ChainMap()
         # cpufreq driver
@@ -310,13 +313,6 @@ class CpuFreqTest:
                     path_min, self.startup_min_freq)
 
         logging.info('* restoring startup governor:')
-        # in case test ends prematurely from prior run
-        # and facilitate reset() called from args
-        if 'userspace' in self.startup_governor:
-            # may need to validate these assumptions
-            self.startup_governor = 'ondemand'
-        elif 'performance' in self.startup_governor:
-            self.startup_governor = 'powersave'
         self.set_governors(self.startup_governor)
 
         # enable offline cores
