@@ -41,8 +41,8 @@ class CpuFreqTestError(Exception):
     def __init__(self, message):
         super().__init__()
         if 'scaling_driver' in message:
-            logging.error(
-                '%s\n## Fatal: scaling via cpufeq unsupported ##')
+            sys.exit(
+                '## Fatal: scaling via cpufeq unsupported ##\n')
         # exempt systems unable to change intel_pstate driver mode
         elif 'intel_pstate/status' in message:
             pass
@@ -52,13 +52,13 @@ class CpuFreqTestError(Exception):
 
 class CpuFreqTest:
     """ Test cpufreq scaling capabilities."""
+    # move into init?
     # duration to stay at frequency (sec) (gt observe_interval)
     scale_duration = 8
     # frequency sampling interval (sec) (lt scale_duration)
     observe_interval = .4
     # max, min percentage of avg freq allowed to pass
     # values relative to target freq
-    # ex: max = 110, min = 90 is 20% passing tolerance
     max_freq_pct = 150
     min_freq_pct = 90
 
@@ -82,6 +82,7 @@ class CpuFreqTest:
         self.path_root = '/sys/devices/system/cpu'
         self.__proc_list = []  # track spawned processes
         # catalog known cpufreq driver types
+        # cpufreq driver types support userspace control
         # used to determine logic flow control
         self.driver_types = (
             '-cpufreq',
@@ -106,6 +107,7 @@ class CpuFreqTest:
 
         # ensure the correct freq table is populated
         if any(drvr in self.scaling_driver for drvr in self.driver_types):
+            # userspace governor
             path_scaling_freqs = path.join('cpu0', 'cpufreq',
                                            'scaling_available_frequencies')
             scaling_freqs = self._read_sysfs(
@@ -115,6 +117,7 @@ class CpuFreqTest:
             # test freqs in ascending order
             self.scaling_freqs.sort()
         else:
+            # non-userspace governor
             # setup path and status for intel pstate directives
             if 'intel_' in self.scaling_driver:
                 # /sys/devices/system/cpu/intel_pstate/status
@@ -363,6 +366,7 @@ class CpuFreqTest:
 
         logging.info('* configuring cpu governors:')
         # userspace governor required for scaling_setspeed
+        # cpufreq driver types support userspace control
         if any(drvr in self.scaling_driver for drvr in self.driver_types):
             self.set_governors('userspace')
         else:
@@ -371,6 +375,7 @@ class CpuFreqTest:
         # spawn core_tests concurrently
         logging.info('---------------------')
         self.spawn_core_test()
+
         # wrap up test
         logging.info('\n-----------------\n'
                      '| Test Complete |\n'
@@ -385,9 +390,9 @@ class CpuFreqTest:
             for proc in self.__proc_list:
                 # terminate dangling processes
                 proc.terminate()
+
         # prove that we are single-threaded again
         logging.info('* active threads: %i\n', threading.active_count())
-
         # display results
         logging.warning('[CpuFreqTest Results]')  # for --quiet mode
         logging.info(
@@ -400,6 +405,7 @@ class CpuFreqTest:
         # provide time under test for debug/verbose output
         end_time = time.time() - start_time
         logging.debug('[Test Took: %.3fs]', end_time)
+
         if self.fail_count:
             print('\n[Test Failed]\n'
                   '* core fail_count =', self.fail_count)
@@ -623,7 +629,7 @@ class CpuFreqCoreTest(CpuFreqTest):
 
         def handle_alarm(*args):
             """Alarm trigger callback, unload core."""
-            # *args req to call signal.signal()
+            # *args req to call signal.signal() (via fn)
             del args  # args unused
             # stop workload loop
             self.__stop_scaling = True
@@ -662,7 +668,7 @@ class CpuFreqCoreTest(CpuFreqTest):
             # map freq results to core
             map_observed_freqs(_freq)
 
-        # cpufreq class driver (non-intel) supports full freq table scaling
+        # cpufreq drivers support full freq table scaling
         if any(drvr in self.scaling_driver for drvr in self.driver_types):
             fpath = path.join(self.__instance_cpu,
                               'cpufreq', 'scaling_setspeed')
