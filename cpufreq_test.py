@@ -39,6 +39,10 @@ import psutil
 class CpuFreqTestError(Exception):
     """Exception handling."""
     def __init__(self, message):
+        # suppress if in support mode
+        if CpuFreqTest.support_mode:
+            return
+
         super().__init__()
         # warn and exit if cpufreq scaling non-supported
         if 'scaling_driver' in message:
@@ -54,6 +58,8 @@ class CpuFreqTestError(Exception):
 
 class CpuFreqTest:
     """ Test cpufreq scaling capabilities."""
+    # for support pre-checks
+    support_mode = False
     # duration to stay at frequency (sec) (gt observe_interval)
     scale_duration = 8
     # frequency sampling interval (sec) (lt scale_duration)
@@ -689,8 +695,16 @@ class CpuFreqCoreTest(CpuFreqTest):
             load_observe_map(freq)
 
 
+class CpuFreqTestSupport(CpuFreqTest):
+    """Fenced test pre-checks."""
+    def __init__(self):
+        CpuFreqTest.support_mode = True
+        # see if we can parse cpufreq driver
+        super().__init__()
+
+
 def parse_arg_logging():
-    """ Ingest arguments and init logging."""
+    """Ingest arguments and init logging."""
     def init_logging(_user_arg):
         """ Pass user arg and configure logging module."""
         # logging optimizations; per python logging lib docs
@@ -726,6 +740,7 @@ def parse_arg_logging():
     parser_mutex_grp = parser.add_mutually_exclusive_group()
     parser_mutex_grp.add_argument(
         '-d', '-D', '--debug',
+        '-v', '-V', '--verbose',
         dest='log_level',
         action='store_const',
         const=logging.DEBUG,
@@ -744,6 +759,10 @@ def parse_arg_logging():
         action='store_true',
         help='reset cpufreq sysfs parameters (all cores):'
         ' (governor, thread siblings, max/min freqs, pstate)')
+    parser_mutex_grp.add_argument(
+        '-s', '-s', '--support',
+        action='store_true',
+        help='check if scaling via cpufreq is supported')
     user_arg = parser.parse_args()
     init_logging(user_arg)
     return user_arg
@@ -752,12 +771,23 @@ def parse_arg_logging():
 def main():
     # configure and start logging
     user_arg = parse_arg_logging()
-    # instantiate CpuFreqTest as cpu_freq_test
+    # check cpufreq support
+    if user_arg.support:
+        try:
+            CpuFreqTestSupport()
+        except CpuFreqTestError:
+            code = 1
+        else:
+            code = 0
+
+        return code
+
     cpu_freq_test = CpuFreqTest()
     # provide access to reset() method
     if user_arg.reset:
         print('[Reset CpuFreq Sysfs]')
         return cpu_freq_test.reset()
+
     return cpu_freq_test.execute_test()
 
 
